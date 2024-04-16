@@ -1,10 +1,10 @@
 import Head from 'next/head';
 import { options } from "./api/auth/[...nextauth]/options"
 import { getServerSession } from "next-auth/next"
-import Navbar from '../components/Navbar';
-import Hero from '../components/Hero';
-import Features from '../components/Features';
-import Footer from '../components/Footer';
+import Navbar from '../components/Navbar'
+import Hero from '../components/Hero'
+import Features from '../components/Features'
+import Footer from '../components/Footer'
 
 export default async function Home() {
   const session = await getServerSession(options)
@@ -15,7 +15,6 @@ export default async function Home() {
         <meta name="description" content="Join Smarter Poker, the best place to play!" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
-      <Navbar />
       <Hero />
       <>
         {session ? (
@@ -29,7 +28,6 @@ export default async function Home() {
         )}
       </>
       <Features />
-      <Footer />
     </div>
   );
 }
