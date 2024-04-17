@@ -1,0 +1,47 @@
+generator client {
+  provider = "prisma-client-js"
+}
+ 
+datasource db {
+  provider = "postgresql"
+  // Uses connection pooling
+  url = env("POSTGRES_PRISMA_URL")
+  // Uses direct connection, ⚠️ make sure to keep this to `POSTGRES_URL_NON_POOLING`
+  // or you'll have dangling databases from migrations
+  directUrl = env("POSTGRES_URL_NON_POOLING")
+}
+
+model User{
+  id Int @id @default(autoincrement())
+  email String @unique 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  balance Float @default(0)
+  numGamesPlayed Int @default(0)
+  numGamesWon Int @default(0)  
+}
+
+model Game {
+  id Int @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  players User[]
+  gameUsers GameUser[]
+  hands Hands[]
+}
+
+model GameUser {
+  gameId Int
+  userId Int
+  user User @relation(fields: [userId], references: [id])
+  game Game @relation(fields: [gameId], references: [id])
+  @@id([gameId, userId])
+}
+
+model Hands {
+  id        Int     @id @default(autoincrement())
+  gameId    Int
+  playerId  Int
+  cards     String // Example: 'AS,10C,3H...' for Ace of Spades, 10 of Clubs, 3 of Hearts
+  game      Game   @relation(fields: [gameId], references: [id])
+  player    User   @relation(fields: [playerId], references: [id])
+}
