@@ -1,13 +1,11 @@
-import { NextAuthOptions } from "next-auth";
 import NextAuth from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google';
-import CredentialsProvider from 'next-auth/providers/credentials'
-import Google from "next-auth/providers/google";
+import prisma from '../../../../lib/prisma';
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET
 
-const authOption = {
+const options = {
     session: {
         strategy: 'jwt'
     },
@@ -23,7 +21,7 @@ const authOption = {
                 throw new Error('No profile')
             }
 
-            await prisma.user.upsert({
+            await prisma.User.upsert({
                 where: {
                     email: profile.email,
                 },
@@ -40,6 +38,6 @@ const authOption = {
     }
 }
 
-const handler =  NextAuth(authOption)
+const handler =  NextAuth(options)
 
 export { handler as GET, handler as POST}
