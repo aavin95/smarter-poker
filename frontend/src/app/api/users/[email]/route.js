@@ -1,18 +1,17 @@
 // pages/api/users/[email].js
-import { PrismaClient } from '@prisma/client';
+import prisma from "@/lib/prisma"
 import { NextResponse } from "next/server";
 
-const prisma = new PrismaClient();
+//const prisma = new PrismaClient();
 
 export async function GET(request) {
   try {
-    console.log("this req, ", request);
     const url = new URL(request.url);
-    console.log("this url, ", url); 
-    const email = url.pathname.split('/').pop();
-    console.log("this email, ", email);
+    console.log("this url", url);
+    const user_email = url.pathname.split('/').pop();
+    console.log("this user_email", user_email);
     const user = await prisma.user.findUnique({
-      where: { email: email },
+      where: { email: user_email },
     });
     if (user) {
       console.log("this user, ", user);

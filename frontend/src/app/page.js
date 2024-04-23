@@ -1,14 +1,16 @@
+"use client"
 import Head from 'next/head';
 import { options } from "./api/auth/[...nextauth]/route"
 import { getServerSession } from "next-auth/next"
 import Hero from '../components/Hero'
 import Features from '../components/Features'
 import prisma from '@/lib/prisma'
+import { useEffect, useState } from 'react';
+import { useSession } from "next-auth/react"
 
-export default async function Home() {
-  const session = await getServerSession(options)
-  const entry = await prisma.User.findMany()
-  
+export default function Home() {
+  const { data: session, status } = useSession();  
+
   return (
     <div>
       <Head>
