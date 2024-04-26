@@ -1,19 +1,20 @@
 "use client"
 import { useSession, signIn } from "next-auth/react";
 import { useState } from "react";
-import prisma from "@/lib/prisma";
 import { NewGame } from '../_actions';
+import { useRouter } from 'next/navigation';
 
 export default function CreateNewGame() {
-  const { data: session, status } = useSession();
-  const [gameInfo, setGameInfo] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+    const { data: session, status } = useSession();
+    const [gameInfo, setGameInfo] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+    const router = useRouter(); 
 
     async function handleCreateGame() {
     if (!session) {
-      signIn();
-      return;
+        signIn();
+        return;
     }
     setLoading(true);
 
@@ -25,6 +26,8 @@ export default function CreateNewGame() {
         setGameInfo(result)
         console.log('Game created with ID:', result);
         setLoading(false);
+        // redirect to game page:
+        router.push(`/game/${result}`)
     }
     catch (error) {
         console.error("can't find user");

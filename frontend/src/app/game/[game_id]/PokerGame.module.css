@@ -1,0 +1,73 @@
+.gameContainer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    font-family: 'Arial', sans-serif;
+}
+
+.header {
+    color: #333;
+    margin-bottom: 20px;
+}
+
+.cardTable {
+    background-color: #004d40;
+    padding: 20px;
+    border-radius: 10px;
+    color: #fff;
+}
+
+.communityCards, .playerHand {
+    margin-bottom: 20px;
+}
+
+.cards {
+    display: flex;
+    gap: 10px;
+}
+
+.card {
+    font-size: 100px;
+}
+
+.controls {
+    display: flex;
+    gap: 10px;
+}
+
+.button {
+    padding: 10px 20px;
+    font-size: 16px;
+    color: #fff;
+    background-color: #00796b;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.button:hover {
+    background-color: #009688;
+}
+
+.error {
+    color: red;
+    margin-bottom: 10px;
+}
+
+.betOptions {
+    display: flex;
+    margin-top: 10px;
+    align-items: center;
+    gap: 10px;
+}
+
+.betInput {
+    padding: 8px;
+    font-size: 16px;
+    line-height: 1;
+    border: 2px solid #00796b;
+    border-radius: 5px;
+    width: 150px;  /* Adjust width as needed */
+}

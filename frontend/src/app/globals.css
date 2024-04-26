@@ -2,6 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Existing styles (if any) */
+
 :root {
   --foreground-rgb: 0, 0, 0;
   --background-start-rgb: 214, 219, 220;
@@ -22,8 +24,7 @@ body {
       to bottom,
       transparent,
       rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+    ) rgb(var(--background-start-rgb));
 }
 
 @layer utilities {

@@ -47,6 +47,10 @@ model Game {
   createdAt DateTime @default(now())
   players User[]
   tableCards String[]
+  pot Int @default(0)
+  currentBet Int @default(0)
+  buttonLocation Int
+  currentTurn Int @default(0)
 }
 
 
