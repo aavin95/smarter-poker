@@ -9,6 +9,9 @@ const nextConfig = {
                 pathname: '/u/**'
             }
         ]
+    },
+    experimental: {
+        serverActions: true
     }
 };
 
