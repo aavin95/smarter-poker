@@ -19,3 +19,19 @@ export async function NewGame(userEmail) {
         return null;
     }
 }
+
+export async function GetGame(gameId) {
+    try
+    {
+        const game = await prisma.Game.findFirst({
+            where: {
+                id: gameId
+            }
+        });
+        return game;
+    }
+    catch(error){
+        console.error(error);
+        return null;
+    }
+}

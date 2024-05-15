@@ -15,7 +15,7 @@ export default function Hero() {
           {
             session ? (
               <div>
-                <p className="text-lg">Welcome back, {session.user.email}!</p>
+                <p className="text-lg">Welcome back, {session.user.name}!</p>
                 <a href='/new-game' >
                   <button className="bg-primary hover:bg-primary-dark text-white font-bold py-2 px-8 rounded-full transition-colors duration-200">Start A Game!</button>
                 </a>

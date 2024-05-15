@@ -23,6 +23,11 @@ export default function CreateNewGame() {
         console.log("user email in page.js", userEmail)
         console.log("is user eamil a string", typeof userEmail)
         const result = await NewGame(userEmail);
+        if (result == null) {
+            setError("Error creating game");
+            setLoading(false);
+            return;
+        }
         setGameInfo(result)
         console.log('Game created with ID:', result);
         setLoading(false);

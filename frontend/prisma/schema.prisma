@@ -39,6 +39,7 @@ model Hand {
   gameId    Int @unique
   playerId  String @unique
   cards     String[]
+  bettingRound Int @default(0)
   player    User   @relation(fields: [playerId], references: [id])
 }
 
@@ -47,10 +48,13 @@ model Game {
   createdAt DateTime @default(now())
   players User[]
   tableCards String[]
+  bigBlind Int @default(20)
+  smallBlind Int @default(10)
   pot Int @default(0)
-  currentBet Int @default(0)
-  buttonLocation Int
+  currentBet Int @default(20)
+  buttonLocation Int @default(0)
   currentTurn Int @default(0)
+  round Int @default(0)
 }
 
 

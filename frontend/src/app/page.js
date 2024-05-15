@@ -23,7 +23,7 @@ export default function Home() {
         {session ? (
           <div className="bg-green-100 text-green-700 text-center py-4">
             <p>You are signed in!</p>
-            <p>{session.user.email}</p>
+            <p>{session.user.name}</p>
           </div>
         ) : (
           <div className="bg-red-100 text-red-700 text-center py-4">

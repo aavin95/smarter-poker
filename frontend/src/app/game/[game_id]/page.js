@@ -10,10 +10,10 @@ export default function PokerGame() {
     const [gameInfo, setGameInfo] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-    const [hand, setHand] = useState(['🂡', '🂡']); // Using card unicode symbols as placeholders
-    const [flop, setFlop] = useState(['🂡', '🂡', '🂡']);
-    const [turn, setTurn] = useState(['🂡']);
-    const [river, setRiver] = useState(['🂡']);
+    const [hand, setHand] = useState([null , null]); // Using card unicode symbols as placeholders
+    const [flop, setFlop] = useState([null , null, null]);
+    const [turn, setTurn] = useState([null]);
+    const [river, setRiver] = useState([null]);
     const router = useRouter();
 
     // Assume function to fetch game data or handle user actions
