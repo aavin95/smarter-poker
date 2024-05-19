@@ -7,6 +7,7 @@ import styles from './PokerGame.module.css';
 export default function PokerGame({ params }) {
     const { data: session, status } = useSession();
     const [gameInfo, setGameInfo] = useState(null);
+    const [players, setPlayers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const router = useRouter();
