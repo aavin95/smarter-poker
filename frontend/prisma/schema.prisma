@@ -38,6 +38,7 @@ model Hand {
   id        Int     @id @default(autoincrement())
   gameId    Int @unique
   playerId  String @unique
+  state     String   @default("inProgress") // can be inProgress, folded, or finished
   cards     String[]
   bettingRound Int @default(0)
   player    User   @relation(fields: [playerId], references: [id])
@@ -46,7 +47,9 @@ model Hand {
 model Game {
   id Int @id @default(autoincrement())
   createdAt DateTime @default(now())
+  state     String   @default("waiting") // can be waiting, playing, or finished
   players User[]
+  dealer Int @default(0) // always just mod this number by size of players
   tableCards String[]
   bigBlind Int @default(20)
   smallBlind Int @default(10)

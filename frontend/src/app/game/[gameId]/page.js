@@ -38,7 +38,7 @@ export default function PokerGame({ params }) {
 
     const handleAction = (action) => {
         console.log(`${action} action taken`);
-        // Implement action handling logic
+        
     };
 
     if (loading) return <div>Loading...</div>;
@@ -54,7 +54,7 @@ export default function PokerGame({ params }) {
                     </li>
                 ))}
             </ul>
-            {gameInfo?.players[0]?.id === session?.user?.id && (
+            {gameInfo?.players[0]?.email === session?.user?.email && (
                 <button onClick={() => handleAction('start')}>Start Game</button>
             )}
         </div>
