@@ -36,7 +36,7 @@ model User{
 
 model Hand {
   id        Int     @id @default(autoincrement())
-  gameId    Int @unique
+  gameId    Int
   playerId  String @unique
   state     String   @default("inProgress") // can be inProgress, folded, or finished
   cards     String[]
@@ -55,9 +55,9 @@ model Game {
   smallBlind Int @default(10)
   pot Int @default(0)
   currentBet Int @default(20)
-  buttonLocation Int @default(0)
   currentTurn Int @default(0)
   round Int @default(0)
+  usedCards String[] @default([])
 }
 
 
