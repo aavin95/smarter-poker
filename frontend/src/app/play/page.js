@@ -79,12 +79,10 @@ export default function CreateNewGame() {
                     </button>
                     <div className="flex flex-col items-center">
                         <input
-                            type="number"
                             value={joinGameId}
                             onChange={(e) => setJoinGameId(e.target.value)}
                             placeholder="Enter Game ID"
                             className="px-4 py-2 mb-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
-                            min="0"
                         />
                         <button 
                             type="submit" 

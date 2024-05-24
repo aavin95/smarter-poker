@@ -15,7 +15,7 @@ export async function GET(req) {
     try {
         const game = await prisma.game.findUnique({
             where: {
-                id: parseInt(game_id, 10)
+                id: game_id
             },
             include: {
                 players: true,
@@ -57,25 +57,29 @@ export async function POST(req) {
         } else if (action === 'start' && game_id) {
             // Start the game by changing its state
             const game = await prisma.game.findUnique({
-                where: { id: parseInt(game_id, 10) }
+                where: { id: game_id },
+                include: { players: true }
             });
 
             if (!game) {
                 return NextResponse.json({ message: 'Game not found' }, { status: 404 });
             }
+            console.log('Dealing hands to players...', game.players);
+
+            // Deal hands to players (example implementation)
+            // const res = fetch(`/api/game/deal/${game.id}`);
+            const res = await fetch(`${req.headers.get('origin')}/api/game/deal/${game.id}`, {
+                method: 'POST',
+            });
+            if (!res.ok) throw new Error('Failed to fetch game data');
 
             const updatedGame = await prisma.game.update({
-                where: { id: parseInt(game_id, 10) },
+                where: { id: game_id },
                 data: { state: 'playing' },
                 include: { players: true } // Include players to deal hands
             });
 
             console.log('Game started:', updatedGame);
-            console.log('Dealing hands to players...', updatedGame.players);
-
-            // Deal hands to players (example implementation)
-            await dealHands(updatedGame.id);
-
             return NextResponse.json({ message: `Game with ID ${game_id} started`, game: updatedGame }, { status: 200 });
         } else {
             return NextResponse.json({ message: 'Invalid action' }, { status: 400 });
@@ -84,38 +88,4 @@ export async function POST(req) {
         console.error('Failed to process request:', error);
         return NextResponse.json({ error: 'Failed to process request' }, { status: 500 });
     }
-}
-
-// Function to deal hands to players
-async function dealHands(gameId) {
-    const game = await prisma.game.findUnique({
-        where: { id: gameId },
-        include: { players: true }
-    });
-
-    if (!game) throw new Error('Game not found');
-
-    for (const player of game.players) {
-        console.log('Dealing hand to player:', player.id);
-        await prisma.hand.deleteMany({
-            where: { playerId: player.id }
-        });
-        const cards = generateHand(); // Implement this function to generate a hand of cards
-        await prisma.hand.create({
-            data: {
-                playerId: player.id,
-                gameId: game.id,
-                cards: JSON.stringify(cards),
-            },
-        });
-        console.log('Hand dealt to player:', player.id, cards);
-    }
-}
-
-function generateHand() {
-    // Example card dealing logic, replace with your actual implementation
-    return [
-        'AH',
-        'AD',
-    ];
 }

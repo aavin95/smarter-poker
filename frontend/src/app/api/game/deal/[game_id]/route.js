@@ -1,6 +1,15 @@
+// app/api/game/deal/[game_id]/route.js
 import prisma from '@/lib/prisma';
 
 import { NextResponse } from "next/server";
+import { io } from 'socket.io-client';
+
+// Ensure socket is connected only once
+let socket;
+
+if (!socket) {
+  socket = io('http://localhost:8080');
+}
 
 
 const DECK = [
@@ -31,8 +40,30 @@ async function dealHands(gameId) {
         where: { id: gameId },
         include: { players: true }
     });
-
     if (!game) throw new Error('Game not found');
+
+    const currentDealer = game.dealer;
+    const numPlayers = game.players.length;
+    const newDealer = (currentDealer + 1) % numPlayers;
+
+    // Mark previous hands as finished
+    await prisma.hand.updateMany({
+        where: { gameId: game.id },
+        data: { state: 'finished' }
+    });
+
+    await prisma.game.update({
+        where: { id: gameId },
+        data: { usedCards: [],
+                tableCards: [],
+                round: 0,
+                currentBet: 0,
+                pot: 0,
+                currentTurn: 0,
+                dealer: newDealer,
+            },
+    });
+
 
     // makes deep copy of the deck and shuffles it
     let localDeck = shuffleDeck([...DECK]);
@@ -69,18 +100,17 @@ async function dealHands(gameId) {
 async function dealCommunityCards(gameId, numCards) {
     const game = await prisma.game.findUnique({
         where: { id: gameId },
-        include: { usedCards: true }
     });
 
     if (!game) throw new Error('Game not found');
-    let localUsedCards = game.usedCards.map(card => JSON.parse(card));
-    let deck = shuffleDeck([...DECK]).filter(card => !usedCards.includes(card));
+    let UsedCards = game.usedCards.map(card => JSON.parse(card));
+    let deck = shuffleDeck([...DECK]).filter(card => !UsedCards.includes(card));
     const communityCards = [];
     for (let i = 0; i < numCards; i++) {
         // shuffle all the cards in the deck excluding the used cards
-        deck = shuffleDeck(deck.filter(c => !localUsedCards.includes(c)));
-        const card = deck.find(c => !localUsedCards.includes(c));
-        localUsedCards.push(card);
+        deck = shuffleDeck(deck.filter(c => !UsedCards.includes(c)));
+        const card = deck.find(c => !UsedCards.includes(c));
+        UsedCards.push(card);
         communityCards.push(card);
     }
 
@@ -91,7 +121,7 @@ async function dealCommunityCards(gameId, numCards) {
             tableCards: {
                 push: communityCards.map(card => JSON.stringify(card)),
             },
-            usedCards: localUsedCards.map(card => JSON.stringify(card)),
+            usedCards: UsedCards.map(card => JSON.stringify(card)),
         },
     });
 }
@@ -110,15 +140,10 @@ export async function GET(req) {
     try {
         const game = await prisma.game.findUnique({
             where: {
-                id: parseInt(game_id, 10)
+                id: game_id
             },
             include: {
-                players: {
-                    include: {
-                        hand: true,
-                    }
-                },
-                tableCards: true,
+                players: true,
             }
         });
 
@@ -140,14 +165,9 @@ export async function POST(req) {
         const game_id = req.url.split('/').pop();
 
         const game = await prisma.game.findUnique({
-            where: { id: parseInt(game_id, 10) },
+            where: { id: game_id },
             include: {
-                players: {
-                    include: {
-                        hand: true,
-                    }
-                },
-                tableCards: true,
+                players: true,
             }
         });
 
@@ -156,8 +176,8 @@ export async function POST(req) {
         }
 
         // Deal community cards based on the round
-        const round = game.round;
-        if (round !== 0) {
+        const round = game.round%4;
+        if ((round) !== 0) {
             let numCards;
             if (round === 1) {
                 numCards = 3; // Flop
@@ -174,9 +194,13 @@ export async function POST(req) {
             // Deal hands to players
             await dealHands(game.id);
         }
+
+        socket.emit('dealCards', game.id);
+
         let updatedGame = game;
         updatedGame = await prisma.game.update({
             where: { id: game.id },
+            include: { players: true },
             data: { round: round + 1 },
         });
 

@@ -1,3 +1,6 @@
+import nodeExternals from 'webpack-node-externals';
+import withBundleAnalyzer from '@next/bundle-analyzer';
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
     images: {
@@ -15,4 +18,12 @@ const nextConfig = {
     }
 };
 
-export default nextConfig;
+const withCustomConfig = withBundleAnalyzer({
+    enabled: process.env.ANALYZE === 'true',
+    webpack(config) {
+        config.externals = [nodeExternals()];
+        return config;
+    },
+});
+
+export default withCustomConfig(nextConfig);
