@@ -64,14 +64,14 @@ export async function POST(req) {
             if (!game) {
                 return NextResponse.json({ message: 'Game not found' }, { status: 404 });
             }
-            console.log('Dealing hands to players...', game.players);
+            //console.log('Dealing hands to players...', game.players);
 
             // Deal hands to players (example implementation)
             // const res = fetch(`/api/game/deal/${game.id}`);
-            const res = await fetch(`${req.headers.get('origin')}/api/game/deal/${game.id}`, {
-                method: 'POST',
-            });
-            if (!res.ok) throw new Error('Failed to fetch game data');
+            // const res = await fetch(`${req.headers.get('origin')}/api/game/deal/${game.id}`, {
+            //     method: 'POST',
+            // });
+            // if (!res.ok) throw new Error('Failed to fetch game data');
 
             const updatedGame = await prisma.game.update({
                 where: { id: game_id },

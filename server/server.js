@@ -87,13 +87,13 @@ app.post('/api/game/deal/:gameId', async (req, res) => {
 
 io.on('connection', (socket) => {
     console.log('a user connected');
-
+    
     socket.on('dealCards', async (gameId) => {
         // Implement logic to deal cards and update the game state
         await dealHands(gameId);
         const game = await prisma.game.findUnique({
             where: { id: gameId },
-            include: { players: true }
+            include: { players: { include: { hands: true } } }
         });
 
         io.emit('gameUpdate', game); // Broadcast game update to all connected clients
@@ -101,6 +101,7 @@ io.on('connection', (socket) => {
 
     socket.on('disconnect', () => {
         console.log('user disconnected');
+        // TODO: Pause them from the game
     });
 });
 

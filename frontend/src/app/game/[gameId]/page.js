@@ -1,5 +1,4 @@
-// app/game/[gameId]/page.js
-"use client"
+"use client";
 import React, { useEffect, useState } from 'react';
 import { useSession } from "next-auth/react";
 import { useRouter } from 'next/navigation';
@@ -17,16 +16,34 @@ export default function PokerGame({ params }) {
     const [error, setError] = useState('');
     const router = useRouter();
 
+    const updateHand = (newHand) => {
+        setPlayerHand(newHand);
+    };
+
     useEffect(() => {
         if (status === "authenticated") {
             socket.on('connect', () => {
                 console.log('Connected to Socket.io server');
             });
 
-            socket.on('gameUpdate', (updatedGame) => {
+            socket.on('gameUpdate', async (updatedGame) => {
                 if (updatedGame.id === params.gameId) {
+                    console.log('Received game update:', updatedGame);
                     setGameInfo(updatedGame);
                     setPlayers(updatedGame.players);
+                    const player = updatedGame.players.find(player => player.email === session.user.email);
+                    console.log("player", player);
+                    if (player) {
+                        // Fetch the user's hand using the API
+                        console.log("player.id", player.id);
+                        console.log("params.gameId", params.gameId);
+                        const hand = await fetchUserHand(params.gameId, player.id);
+                        console.log("hand", hand);
+                        updateHand(hand);
+                        console.log("playerHand after setPlayerHand call:", playerHand);
+                    } else {
+                        setPlayerHand([]);
+                    }
                 }
             });
 
@@ -46,6 +63,10 @@ export default function PokerGame({ params }) {
             };
         }
     }, [params.gameId, status]);
+
+    useEffect(() => {
+        console.log("playerHand state updated:", playerHand);
+    }, [playerHand]);
 
     const fetchGameData = async () => {
         try {
@@ -77,6 +98,29 @@ export default function PokerGame({ params }) {
         }
     }, [params.gameId, status]);
 
+    async function fetchUserHand(gameId, userId) {
+        try {
+            console.log("Fetching user hand for gameId:", gameId, "userId:", userId);
+            const res = await fetch(`/api/game/hand/${gameId}/${userId}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            });
+
+            if (!res.ok) {
+                throw new Error('Failed to fetch user hand');
+            }
+
+            const data = await res.json();
+            console.log("Fetched hand data:", data);
+            return data.hand;
+        } catch (error) {
+            console.error('Error fetching user hand:', error);
+            return [];
+        }
+    }
+
     async function handleStartGame() {
         try {
             const res = await fetch(`/api/game/${params.gameId}`, {
@@ -89,7 +133,7 @@ export default function PokerGame({ params }) {
                     action: 'start',
                 }),
             });
-    
+
             if (!res.ok) {
                 throw new Error('Failed to start game');
             }
@@ -128,6 +172,10 @@ export default function PokerGame({ params }) {
 
     if (loading) return <div>Loading...</div>;
     if (error) return <div>Error: {error}</div>;
+    console.log("session:", session);
+    console.log("gameInfo:", gameInfo);
+    console.log("session.user.id:", session?.user?.id);
+    console.log("gameInfo.host:", gameInfo?.hostId);
 
     return (
         <div className={styles.gameContainer}>
@@ -141,14 +189,9 @@ export default function PokerGame({ params }) {
                 {players.map((player, index) => (
                     <li key={player.id}>
                         {player.name} {index === 0 ? '(Dealer)' : ''}
-                        {player.email === session.user.email && playerHand.length > 0 && (
+                        {player.email === session.user.email && (
                             <div>
-                                <p>Your Cards:</p>
-                                <ul>
-                                    {playerHand.map((card, cardIndex) => (
-                                        <li key={cardIndex}>{card.suit} {card.rank}</li>
-                                    ))}
-                                </ul>
+                                <p>Your Cards: {playerHand[0]}, {playerHand[1]}</p>
                             </div>
                         )}
                     </li>
@@ -159,7 +202,7 @@ export default function PokerGame({ params }) {
                 <button onClick={handleStartGame}>Start Game</button>
             )}
             {
-                gameInfo?.state === 'playing' && (
+                gameInfo?.state === 'playing' && gameInfo.host === session.user?.id && (
                     <button onClick={() => dealHands(gameInfo.id)}>Deal Hands</button>
                 )
             }
