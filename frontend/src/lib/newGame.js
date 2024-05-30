@@ -10,11 +10,6 @@ export async function newGame({ user }) {
         console.log("user id in newGame.js", user.id)
         const game = await prisma.Game.create({
         data: {
-            host: {
-                connect: {
-                    id: user.id
-                }
-            },
             players: {
                 connect: [{
                     id: user.id

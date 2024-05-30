@@ -3,7 +3,7 @@ const prisma = new PrismaClient();
 
 async function deleteAllHands() {
   try {
-    const deleteResult = await prisma.hand.deleteMany({});
+    const deleteResult = await prisma.User.deleteMany({});
     console.log(`${deleteResult.count} hands were deleted.`);
   } catch (error) {
     console.error('Failed to delete hands:', error);

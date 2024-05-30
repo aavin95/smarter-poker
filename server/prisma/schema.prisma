@@ -30,7 +30,6 @@ model User {
   // game info
   gameId String?
   currentGame Game? @relation("PlayerGames", fields: [gameId], references: [id])
-  hostedGames Game[] @relation("HostGames")
   hands Hand[]
 }
 
@@ -50,8 +49,6 @@ model Game {
   id String @id @default(cuid())
   createdAt DateTime @default(now())
   state     String   @default("waiting") // can be waiting, playing, or finished
-  host User @relation("HostGames", fields: [hostId], references: [id])
-  hostId String
   players User[] @relation("PlayerGames")
   hands       Hand[]
   dealer Int @default(0) // always just mod this number by size of players

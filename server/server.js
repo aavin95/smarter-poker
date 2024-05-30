@@ -4,6 +4,8 @@ const { Server } = require('socket.io');
 const cors = require('cors'); 
 const { PrismaClient } = require('@prisma/client');
 const { dealHands, dealCommunityCards } = require('./deal');
+require('dotenv').config(); // Load environment variables
+
 
 const prisma = new PrismaClient();
 const app = express();

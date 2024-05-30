@@ -73,3 +73,46 @@ export async function JoinGame(gameId, userEmail) {
         return null;
     }
 }
+
+export async function LeaveGame(gameId, userId) {
+    try {
+        console.log("Attempting to find user with email:", userEmail);
+        const user = await prisma.User.findFirst({
+            where: {
+                id: userId
+            }
+        });
+
+        if (!user) {
+            throw new Error(`No user found with email: ${userEmail}`);
+        }
+        const isUserInGame = await prisma.Game.findFirst({
+            where: {
+                id: gameId,
+                players: {
+                    some: {
+                        id: user.id
+                    }
+                }
+            }
+        });
+
+        if (!isUserInGame) {
+            console.log(`User with email ${userEmail} isn't in the game with id ${gmaeId}`);
+            return null; // or some appropriate response indicating the user is already in the game
+        }
+        const game = await prisma.Game.update({
+            where: { id: gameId },
+            data: {
+                players: {
+                    disconnect: [{ id: user.id }]
+                }
+            }
+        });
+        return game;
+    }
+    catch(error) {
+        console.error(error);
+        return null;
+    }
+}
