@@ -15,6 +15,7 @@ export default function PokerGame({ params }) {
     const [dealer, setDealer] = useState('');
     const [loading, setLoading] = useState(true);
     const [playerHand, setPlayerHand] = useState([]);
+    const [gameState, setGameState] = useState(''); // TODO: Add this to the code
     const [onClockPlayer, setOnClockPlayer] = useState(0);
     const [error, setError] = useState('');
     const router = useRouter();
@@ -147,19 +148,15 @@ export default function PokerGame({ params }) {
 
     async function handleStartGame() {
         try {
-            const res = await fetch(`/api/game/${params.gameId}`, {
+            const res = await fetch(`http://localhost:8080/api/game/start/${params.gameId}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                    userEmail: session.user.email,
-                    action: 'start',
-                }),
             });
 
             if (!res.ok) {
-                throw new Error('Failed to start game');
+                throw new Error('Failed to deal cards');
             }
             const data = await res.json();
             setGameInfo(data.game);

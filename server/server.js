@@ -97,6 +97,37 @@ app.post('/api/game/deal/:gameId', async (req, res) => {
     }
 });
 
+// API endpoint for starting a game
+app.post('/api/game/start/:gameId', async (req, res) => {
+    try {
+        const gameId = req.params.gameId;
+        const game = await prisma.game.findUnique({
+            where: { id: gameId },
+            include: { players: true }
+        });
+
+        if (!game) {
+            return res.status(404).json({ message: 'Game not found' });
+        }
+
+        const updatedGame = await prisma.game.update({
+            where: { id: gameId },
+            data: { state: 'playing' },
+            include: { players: true }
+        });
+
+        // Emit sanitized event to Socket.io server
+        io.emit('gameUpdate', sanitizeGameData(updatedGame));
+
+        
+
+        res.status(200).json({ message: `Game with ID ${gameId} started`, game: sanitizeGameData(updatedGame) });
+    } catch (error) {
+        console.error('Failed to process request:', error);
+        res.status(500).json({ error: 'Failed to process request' });
+    }
+});
+
 io.on('connection', (socket) => {
     console.log('a user connected');
     
