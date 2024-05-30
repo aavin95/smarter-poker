@@ -119,7 +119,8 @@ app.post('/api/game/start/:gameId', async (req, res) => {
         // Emit sanitized event to Socket.io server
         io.emit('gameUpdate', sanitizeGameData(updatedGame));
 
-        
+        // Start the game loop
+        startGameLoop(gameId);
 
         res.status(200).json({ message: `Game with ID ${gameId} started`, game: sanitizeGameData(updatedGame) });
     } catch (error) {
@@ -127,6 +128,72 @@ app.post('/api/game/start/:gameId', async (req, res) => {
         res.status(500).json({ error: 'Failed to process request' });
     }
 });
+
+// Asynchronous game loop function
+const startGameLoop = async (gameId) => {
+    let game = await prisma.game.findUnique({
+        where: { id: gameId },
+        include: { players: true }
+    });
+
+    const gameLoop = async () => {
+        if (game.state !== 'playing') return;
+
+        console.log('Game loop running for game:', gameId);
+
+        // Handle player turn timing
+        const playerOnClock = game.players[game.playerOnClock];
+        if (!playerOnClock) return;
+
+        // Notify clients about the current player
+        io.emit('gameUpdate', sanitizeGameData(game));
+
+        // Wait for the player's turn duration (e.g., 30 seconds)
+        await new Promise(resolve => setTimeout(resolve, 30000));
+        let player = await prisma.User.findUnique({
+            where: { id: playerOnClock.id },
+            include: { hands: true }
+        });
+        // TODO: ended here. I was just about to implement the logic to check if the player has 
+        // folded by running out of time or not. next you need to finish reading this function and 
+        // making edits to it. you will also need to implement fold, check, call, and raise functions/ api endpoints
+        // to handle player actions.
+        // Move to the next player
+        const nextPlayerIndex = (game.playerOnClock + 1) % game.players.length;
+        game = await prisma.game.update({
+            where: { id: gameId },
+            data: { playerOnClock: nextPlayerIndex },
+            include: { players: true }
+        });
+
+        // Automatically deal community cards or handle other game events if needed
+        if (game.round === 1 || game.round === 2 || game.round === 3) {
+            await dealCommunityCards(prisma, game.id, 1);
+            game = await prisma.game.update({
+                where: { id: gameId },
+                data: { round: game.round + 1 },
+                include: { players: true }
+            });
+        } else if (game.round === 4) {
+            await dealHands(prisma, game.id);
+            game = await prisma.game.update({
+                where: { id: gameId },
+                data: { round: 0 },
+                include: { players: true }
+            });
+        }
+
+        // Emit sanitized event to Socket.io server
+        io.emit('gameUpdate', sanitizeGameData(game));
+
+        // Schedule the next iteration of the game loop
+        setTimeout(gameLoop, 0);
+    };
+
+    // Start the game loop
+    gameLoop();
+};
+
 
 io.on('connection', (socket) => {
     console.log('a user connected');
