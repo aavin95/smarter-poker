@@ -52,6 +52,7 @@ model Game {
   players User[] @relation("PlayerGames")
   hands       Hand[]
   dealer Int @default(0) // always just mod this number by size of players
+  playerOnClock Int @default(0)
   tableCards String[]
   bigBlind Int @default(20)
   smallBlind Int @default(10)

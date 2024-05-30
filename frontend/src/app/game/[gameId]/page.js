@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useSession } from "next-auth/react";
 import { useRouter } from 'next/navigation';
 import { io } from 'socket.io-client';
+import { LeaveGame } from '../../_actions';
 import styles from './PokerGame.module.css';
 
 const socket = io('http://localhost:8080');
@@ -14,6 +15,7 @@ export default function PokerGame({ params }) {
     const [dealer, setDealer] = useState('');
     const [loading, setLoading] = useState(true);
     const [playerHand, setPlayerHand] = useState([]);
+    const [onClockPlayer, setOnClockPlayer] = useState(0);
     const [error, setError] = useState('');
     const router = useRouter();
 
@@ -57,7 +59,7 @@ export default function PokerGame({ params }) {
                 if (updatedGame.id === params.gameId) {
                     setGameInfo(updatedGame);
                     const playersData = updatedGame.players;
-                    console.log('playersData:', playersData);
+                    setOnClockPlayer(updatedGame.onClockPlayer);
                     updatePlayers(playersData);
                     const player = playersData.find(player => player.email === session.user.email);
                     if (player) {
@@ -169,7 +171,7 @@ export default function PokerGame({ params }) {
         }
     }
 
-    async function handleJoinGame() {
+    async function handleLeaveGame() {
         if (!session) {
             signIn();
             return;
@@ -180,14 +182,20 @@ export default function PokerGame({ params }) {
         }
         setLoading(true);
         try {
-            const userId = session.user.id;
-            const result = await JoinGame(params.gameId, userId);
+            const userEmail = session.user.email;
+            console.log('leaving game:', params.gameId, userEmail)
+            const result = await LeaveGame(params.gameId, userEmail);
             if (result == null) {
-                setError("Can't join a game you're already in.");
+                setError("An error occured while trying to leave the game.");
                 setLoading(false);
                 return;
             }
+            else if (result === 'deleted game') {
+                router.push(`/`);
+                return;
+            }
             setGameInfo(result);
+            setPlayers(result.players);
             setLoading(false);
             // redirect to game page:
             router.push(`/play`);
@@ -232,14 +240,19 @@ export default function PokerGame({ params }) {
             ) : (
                 <p>Waiting for players to join...</p>
             )}
+            <p>Pot size: {gameInfo?.pot}</p>
             <ul>
                 {console.log('players in html:', players)}
                 {Array.isArray(players) && players.map((player, index) => (
                     <li key={player.id}>
                         {player.name} {player.email === dealer ? '(Dealer)' : ''}
+                        {index === (gameInfo.dealer + 1) % players.length ? '(Small Blind)' : ''}
+                        {index === (gameInfo.dealer + 2) % players.length ? '(Big Blind)' : ''}
+                        {index === onClockPlayer ? '(On Clock)' : ''}
                         {player.email === session.user.email && gameInfo?.state === 'playing' && (
                             <div>
                                 <p>Your Cards: {playerHand[0]}, {playerHand[1]}</p>
+                                <p>Your Contribution to Pot: {player.contribution}</p>
                             </div>
                         )}
                         {dealer === session.user.email && player.email === session.user.email && gameInfo?.state === 'playing' 
@@ -253,6 +266,7 @@ export default function PokerGame({ params }) {
                 && gameInfo?.players.length >= 2 && (
                 <button onClick={handleStartGame}>Start Game</button>
             )}
+            <button onClick={handleLeaveGame}>Leave Game</button>
         </div>
     );
 }

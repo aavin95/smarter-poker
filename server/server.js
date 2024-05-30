@@ -1,11 +1,10 @@
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
-const cors = require('cors'); 
+const cors = require('cors');
 const { PrismaClient } = require('@prisma/client');
 const { dealHands, dealCommunityCards } = require('./deal');
 require('dotenv').config(); // Load environment variables
-
 
 const prisma = new PrismaClient();
 const app = express();
@@ -20,6 +19,18 @@ const io = new Server(server, {
 app.use(express.json());
 app.use(cors({ origin: 'http://localhost:3001' })); // Enable CORS for your Next.js app
 
+const sanitizeGameData = (game) => {
+    const sanitizedGame = {
+        ...game,
+        players: game.players.map(player => ({
+            ...player,
+            hands: [], // Exclude player hands
+        })),
+        usedCards: [] // Exclude used cards
+    };
+    return sanitizedGame;
+};
+
 // API endpoint to get game data
 app.get('/api/game/:gameId', async (req, res) => {
     try {
@@ -30,7 +41,7 @@ app.get('/api/game/:gameId', async (req, res) => {
         });
 
         if (game) {
-            res.status(200).json(game);
+            res.status(200).json(sanitizeGameData(game));
         } else {
             res.status(404).json({ message: 'Game not found' });
         }
@@ -53,7 +64,7 @@ app.post('/api/game/deal/:gameId', async (req, res) => {
             return res.status(404).json({ message: 'Game not found' });
         }
 
-        const round = game.round%4;
+        const round = game.round % 4;
         if ((round) !== 0) {
             let numCards;
             if (round === 1) {
@@ -74,18 +85,17 @@ app.post('/api/game/deal/:gameId', async (req, res) => {
             include: { players: true },
             data: { round: round + 1 },
         });
-        console.log("game before beign sent to users", updatedGame);
+        console.log("game before being sent to users", updatedGame);
 
-        // Emit event to Socket.io server
-        io.emit('gameUpdate', updatedGame);
+        // Emit sanitized event to Socket.io server
+        io.emit('gameUpdate', sanitizeGameData(updatedGame));
 
-        res.status(200).json({ message: `Dealt cards for round ${round}`, game: updatedGame });
+        res.status(200).json({ message: `Dealt cards for round ${round}`, game: sanitizeGameData(updatedGame) });
     } catch (error) {
         console.error('Failed to process request:', error);
         res.status(500).json({ error: 'Failed to process request' });
     }
 });
-
 
 io.on('connection', (socket) => {
     console.log('a user connected');
@@ -98,7 +108,7 @@ io.on('connection', (socket) => {
             include: { players: { include: { hands: true } } }
         });
 
-        io.emit('gameUpdate', game); // Broadcast game update to all connected clients
+        io.emit('gameUpdate', sanitizeGameData(game)); // Broadcast sanitized game update to all connected clients
     });
 
     socket.on('disconnect', () => {

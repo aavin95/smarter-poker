@@ -53,7 +53,7 @@ export async function JoinGame(gameId, userEmail) {
         });
 
         if (isUserInGame) {
-            console.log(`User with email ${userEmail} is already in the game with id ${gmaeId}`);
+            console.log(`User with email ${userEmail} is already in the game with id ${gameId}`);
             return null; // or some appropriate response indicating the user is already in the game
         }
 
@@ -74,15 +74,15 @@ export async function JoinGame(gameId, userEmail) {
     }
 }
 
-export async function LeaveGame(gameId, userId) {
+export async function LeaveGame(gameId, userEmail) {
     try {
         console.log("Attempting to find user with email:", userEmail);
         const user = await prisma.User.findFirst({
             where: {
-                id: userId
+                email: userEmail
             }
         });
-
+        console.log("user id in _actions.js", user.id);
         if (!user) {
             throw new Error(`No user found with email: ${userEmail}`);
         }
@@ -94,21 +94,37 @@ export async function LeaveGame(gameId, userId) {
                         id: user.id
                     }
                 }
-            }
+            },
+            include: { players: true }
         });
-
+        console.log("isUserInGame", isUserInGame);
         if (!isUserInGame) {
-            console.log(`User with email ${userEmail} isn't in the game with id ${gmaeId}`);
+            console.log(`User with email ${userEmail} isn't in the game with id ${gameId}`);
             return null; // or some appropriate response indicating the user is already in the game
         }
-        const game = await prisma.Game.update({
+        await prisma.hand.updateMany({
+            where: { gameId: gameId },
+            data: { state: 'finished' }
+        });
+
+        let game = await prisma.Game.update({
             where: { id: gameId },
             data: {
                 players: {
                     disconnect: [{ id: user.id }]
                 }
-            }
+            },
+            include: { players: true }
         });
+        if (game.players.length === 0) {
+            game = await prisma.Game.update({
+                where: { id: gameId },
+                data: {
+                    state: 'finished'
+                },
+                include: { players: true }
+            });
+        }
         return game;
     }
     catch(error) {
