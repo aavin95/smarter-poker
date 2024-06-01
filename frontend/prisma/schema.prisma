@@ -18,27 +18,23 @@ model User {
   image         String?
   accounts      Account[]
   sessions      Session[]
-  // Optional for WebAuthn support
   Authenticator Authenticator[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  // dashboard stats
-  balance Float @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  balance       Float @default(0)
   numGamesPlayed Int @default(0)
-  numGamesWon Int @default(0)  
-  // game info
-  gameId String?
-  currentGame Game? @relation("PlayerGames", fields: [gameId], references: [id])
-  hands Hand[]
+  numGamesWon   Int @default(0)  
+  gameId        String?
+  currentGame   Game? @relation("PlayerGames", fields: [gameId], references: [id])
+  hands         Hand[]
+  bets          Bet[]
 }
-
 
 model Hand {
   id            String  @id @default(cuid())
   gameId        String
   playerId      String
-  state         String   @default("inProgress") // can be inProgress, folded, or finished
+  state         String   @default("inProgress")
   cards         String[]
   bettingRound  Int      @default(0)
   player        User     @relation(fields: [playerId], references: [id])
@@ -46,21 +42,32 @@ model Hand {
 }
 
 model Game {
-  id String @id @default(cuid())
-  createdAt DateTime @default(now())
-  state     String   @default("waiting") // can be waiting, playing, or finished
-  players User[] @relation("PlayerGames")
-  hands       Hand[]
-  dealer Int @default(0) // always just mod this number by size of players
-  playerOnClock Int @default(0)
-  tableCards String[]
-  bigBlind Int @default(20)
-  smallBlind Int @default(10)
-  pot Int @default(0)
-  currentBet Int @default(20)
-  currentTurn Int @default(0)
-  round Int @default(0)
-  usedCards String[] @default([])
+  id            String   @id @default(cuid())
+  createdAt     DateTime @default(now())
+  state         String   @default("waiting")
+  players       User[]   @relation("PlayerGames")
+  hands         Hand[]
+  bets          Bet[]
+  dealer        Int      @default(0)
+  playerOnClock Int      @default(0)
+  tableCards    String[]
+  bigBlind      Int      @default(20)
+  smallBlind    Int      @default(10)
+  pot           Int      @default(0)
+  currentBet    Int      @default(20)
+  currentTurn   Int      @default(0)
+  round         Int      @default(0)
+  usedCards     String[] @default([])
+}
+
+model Bet {
+  id        String @id @default(cuid())
+  gameId    String
+  playerId  String
+  amount    Int
+  round     Int
+  player    User  @relation(fields: [playerId], references: [id])
+  game      Game  @relation(fields: [gameId], references: [id])
 }
 
 
