@@ -133,7 +133,7 @@ app.post('/api/game/start/:gameId', async (req, res) => {
 const startGameLoop = async (gameId) => {
     let game = await prisma.game.findUnique({
         where: { id: gameId },
-        include: { players: true }
+        include: { players: true}
     });
 
     const gameLoop = async () => {
@@ -152,8 +152,40 @@ const startGameLoop = async (gameId) => {
         await new Promise(resolve => setTimeout(resolve, 30000));
         let player = await prisma.User.findUnique({
             where: { id: playerOnClock.id },
-            include: { hands: true }
+            include: { 
+                bets: true,
+                currentGame: true
+             }
         });
+        if (player && player.currentGame) {
+            let latestBet = await prisma.bet.findMany({
+                where: {
+                playerId: player.id,
+                gameId: player.currentGame.id,
+            },
+            orderBy: {
+                createdAt: 'desc',
+            },
+            take: 1,
+            });
+
+            player = {
+                ...player,
+                bets: latestBet,
+            };
+        }
+        if (player.currentGame.currentBet > player.bets.amount) {
+            // player has folded
+            // update the player's state to folded
+            player = await prisma.hand.update({
+                where: { 
+                    id: player.id,
+                    gameId: player.currentGame.id
+                },
+                data: { state: 'folded' }
+            });
+            io.emit('gameUpdate', sanitizeGameData(game));
+        }
         // TODO: ended here. I was just about to implement the logic to check if the player has 
         // folded by running out of time or not. next you need to finish reading this function and 
         // making edits to it. you will also need to implement fold, check, call, and raise functions/ api endpoints

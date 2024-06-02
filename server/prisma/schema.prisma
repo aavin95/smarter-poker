@@ -62,6 +62,7 @@ model Game {
 
 model Bet {
   id        String @id @default(cuid())
+  createdAt DateTime @default(now())
   gameId    String
   playerId  String
   amount    Int
