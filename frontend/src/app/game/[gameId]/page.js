@@ -4,7 +4,6 @@ import { useSession } from "next-auth/react";
 import { useRouter } from 'next/navigation';
 import { io } from 'socket.io-client';
 import { LeaveGame } from '../../_actions';
-import styles from './PokerGame.module.css';
 
 const socket = io('http://localhost:8080');
 
@@ -233,21 +232,21 @@ export default function PokerGame({ params }) {
         }
     }
 
-    if (loading) return <div>Loading...</div>;
-    if (error) return <div>Error: {error}</div>;
+    if (loading) return <div className="flex flex-col items-center justify-center min-h-screen py-2 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">Loading...</div>;
+    if (error) return <div className="flex flex-col items-center justify-center min-h-screen py-2 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">Error: {error}</div>;
 
     return (
-        <div className={styles.gameContainer}>
-            <h2>Poker Table</h2>
+        <div className="flex flex-col items-center justify-center min-h-screen py-2 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+            <h2 className="text-2xl font-bold mb-4">Poker Table</h2>
             {gameInfo?.state === 'playing' ? (
-                <p>Game in progress</p>
+                <p className="mb-4">Game in progress</p>
             ) : (
-                <p>Waiting for players to join...</p>
+                <p className="mb-4">Waiting for players to join...</p>
             )}
-            <p>Pot size: {gameInfo?.pot}</p>
-            <ul>
+            <p className="mb-4">Pot size: {gameInfo?.pot}</p>
+            <ul className="mb-4">
                 {Array.isArray(players) && players.map((player, index) => (
-                    <li key={player.id}>
+                    <li key={player.id} className="mb-2">
                         {player.name} {player.email === dealer ? '(Dealer)' : ''}
                         {index === (gameInfo.dealer + 1) % players.length ? '(Small Blind)' : ''}
                         {index === (gameInfo.dealer + 2) % players.length ? '(Big Blind)' : ''}
@@ -260,24 +259,24 @@ export default function PokerGame({ params }) {
                         )}
                         {dealer === session.user.email && player.email === session.user.email && gameInfo?.state === 'playing'
                             ? <div>
-                                <button onClick={() => dealHands(gameInfo.id)}>Deal Hands</button>
+                                <button onClick={() => dealHands(gameInfo.id)} className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">Deal Hands</button>
                             </div> : ''}
                     </li>
                 ))}
             </ul>
             {gameInfo?.players[0]?.email === session?.user?.email && gameInfo?.state === 'waiting'
                 && gameInfo?.players.length >= 2 && (
-                    <button onClick={handleStartGame}>Start Game</button>
+                    <button onClick={handleStartGame} className="px-4 py-2 mb-4 bg-blue-500 text-white rounded hover:bg-blue-600">Start Game</button>
                 )}
             {gameInfo?.state === 'playing' && (
-                <div>
-                    <button onClick={() => handlePlayerAction('fold')}>Fold</button>
-                    <button onClick={() => handlePlayerAction('check')}>Check</button>
-                    <button onClick={() => handlePlayerAction('call')}>Call</button>
-                    <button onClick={() => handlePlayerAction('raise', 100)}>Raise</button> {/* Amount can be changed */}
+                <div className="flex space-x-2 mb-4">
+                    <button onClick={() => handlePlayerAction('fold')} className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600">Fold</button>
+                    <button onClick={() => handlePlayerAction('check')} className="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600">Check</button>
+                    <button onClick={() => handlePlayerAction('call')} className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">Call</button>
+                    <button onClick={() => handlePlayerAction('raise', 100)} className="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600">Raise</button>
                 </div>
             )}
-            <button onClick={handleLeaveGame}>Leave Game</button>
+            <button onClick={handleLeaveGame} className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">Leave Game</button>
         </div>
     );
 }
