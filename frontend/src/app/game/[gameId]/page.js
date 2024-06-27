@@ -185,36 +185,14 @@ export default function PokerGame({ params }) {
         }
     }
 
-    async function dealHands(gameId) {
-        try {
-            const res = await fetch(`http://localhost:8080/api/game/deal/${gameId}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                }
-            });
-
-            if (!res.ok) {
-                throw new Error('Failed to deal cards');
-            }
-
-            const data = await res.json();
-            setGameInfo(data.game);
-            updatePlayers(data.game.players);
-        } catch (error) {
-            console.error('Error dealing hands:', error);
-            setError('Failed to deal hands.');
-        }
-    }
-
     async function handlePlayerAction(action, amount = 0) {
         try {
-            const res = await fetch(`http://localhost:8080/api/game/${params.gameId}/player/${session.user.id}/${action}`, {
+            const res = await fetch(`http://localhost:8080/api/game/action/${params.gameId}/${session.user.id}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ raiseAmount: amount })
+                body: JSON.stringify({ action, amount })
             });
 
             if (!res.ok) {
@@ -222,10 +200,11 @@ export default function PokerGame({ params }) {
             }
 
             const data = await res.json();
-            setGameInfo(data);
+            setGameInfo(data.data);
             console.log('Player action data:', data);
-            console.log('Player action:', data.players);
-            updatePlayers(data.players);
+            console.log('Player action data:', data.data.players);
+
+            updatePlayers(data.data.players);
         } catch (error) {
             console.error(`Error performing ${action}:`, error);
             setError(`Failed to ${action}.`);
@@ -254,13 +233,8 @@ export default function PokerGame({ params }) {
                         {player.email === session.user.email && gameInfo?.state === 'playing' && (
                             <div>
                                 <p>Your Cards: {playerHand[0]}, {playerHand[1]}</p>
-                                <p>Your Contribution to Pot: {player.contribution}</p>
                             </div>
                         )}
-                        {dealer === session.user.email && player.email === session.user.email && gameInfo?.state === 'playing'
-                            ? <div>
-                                <button onClick={() => dealHands(gameInfo.id)} className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">Deal Hands</button>
-                            </div> : ''}
                     </li>
                 ))}
             </ul>
@@ -268,7 +242,7 @@ export default function PokerGame({ params }) {
                 && gameInfo?.players.length >= 2 && (
                     <button onClick={handleStartGame} className="px-4 py-2 mb-4 bg-blue-500 text-white rounded hover:bg-blue-600">Start Game</button>
                 )}
-            {gameInfo?.state === 'playing' && (
+            {gameInfo?.state === 'playing' && onClockPlayer === players.findIndex(player => player.email === session.user.email) && (
                 <div className="flex space-x-2 mb-4">
                     <button onClick={() => handlePlayerAction('fold')} className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600">Fold</button>
                     <button onClick={() => handlePlayerAction('check')} className="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600">Check</button>
