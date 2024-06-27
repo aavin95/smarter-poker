@@ -15,7 +15,7 @@ export default function PokerGame({ params }) {
     const [dealer, setDealer] = useState('');
     const [loading, setLoading] = useState(true);
     const [playerHand, setPlayerHand] = useState([]);
-    const [gameState, setGameState] = useState(''); // TODO: Add this to the code
+    const [gameState, setGameState] = useState('');
     const [onClockPlayer, setOnClockPlayer] = useState(0);
     const [error, setError] = useState('');
     const router = useRouter();
@@ -25,15 +25,8 @@ export default function PokerGame({ params }) {
     };
 
     const updatePlayers = (newPlayers) => {
-        console.log('New players before update:', newPlayers);
-        console.log('Type of newPlayers:', typeof newPlayers);
-
-        // Ensure newPlayers is converted to an array of values if it's not already an array
         const playersArray = Array.isArray(newPlayers) ? newPlayers : Object.values(newPlayers);
-
-        console.log('Converted playersArray:', playersArray);
         setPlayers(playersArray);
-        console.log('Updated players state:', playersArray);
     };
 
     useEffect(() => {
@@ -43,9 +36,7 @@ export default function PokerGame({ params }) {
     }, [players, gameInfo]);
 
     const updateDealer = (dealerIndex) => {
-        console.log('about to update dealer:', dealerIndex, players.length);
         if (players.length > 0 && dealerIndex < players.length) {
-            console.log('updating dealer:', players[dealerIndex].email);
             setDealer(players[dealerIndex].email);
         }
     };
@@ -60,11 +51,10 @@ export default function PokerGame({ params }) {
                 if (updatedGame.id === params.gameId) {
                     setGameInfo(updatedGame);
                     const playersData = updatedGame.players;
-                    setOnClockPlayer(updatedGame.onClockPlayer);
+                    setOnClockPlayer(updatedGame.playerOnClock);
                     updatePlayers(playersData);
                     const player = playersData.find(player => player.email === session.user.email);
                     if (player) {
-                        // Fetch the user's hand using the API
                         const hand = await fetchUserHand(params.gameId, player.id);
                         updateHand(hand);
                     } else {
@@ -98,9 +88,7 @@ export default function PokerGame({ params }) {
             if (!res.ok) throw new Error('Failed to fetch game data');
             const data = await res.json();
             setGameInfo(data);
-            console.log('game info players:', data.players);
             const playersData = data.players;
-            console.log('playersData:', playersData);
             updatePlayers(playersData);
 
             const currentPlayer = playersData.find(player => player.email === session.user.email);
@@ -110,7 +98,6 @@ export default function PokerGame({ params }) {
             } else {
                 setPlayerHand([]);
             }
-
         } catch (error) {
             setError('Failed to load game data.');
             console.error(error);
@@ -156,7 +143,7 @@ export default function PokerGame({ params }) {
             });
 
             if (!res.ok) {
-                throw new Error('Failed to deal cards');
+                throw new Error('Failed to start game');
             }
             const data = await res.json();
             setGameInfo(data.game);
@@ -180,24 +167,21 @@ export default function PokerGame({ params }) {
         setLoading(true);
         try {
             const userEmail = session.user.email;
-            console.log('leaving game:', params.gameId, userEmail)
             const result = await LeaveGame(params.gameId, userEmail);
             if (result == null) {
-                setError("An error occured while trying to leave the game.");
+                setError("An error occurred while trying to leave the game.");
                 setLoading(false);
                 return;
-            }
-            else if (result === 'deleted game') {
+            } else if (result === 'deleted game') {
                 router.push(`/`);
                 return;
             }
             setGameInfo(result);
             setPlayers(result.players);
             setLoading(false);
-            // redirect to game page:
             router.push(`/play`);
         } catch (error) {
-            console.error("can't find user");
+            console.error("Can't find user");
             setLoading(false);
         }
     }
@@ -208,7 +192,7 @@ export default function PokerGame({ params }) {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                },
+                }
             });
 
             if (!res.ok) {
@@ -224,10 +208,33 @@ export default function PokerGame({ params }) {
         }
     }
 
+    async function handlePlayerAction(action, amount = 0) {
+        try {
+            const res = await fetch(`http://localhost:8080/api/game/${params.gameId}/player/${session.user.id}/${action}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ raiseAmount: amount })
+            });
+
+            if (!res.ok) {
+                throw new Error(`Failed to ${action}`);
+            }
+
+            const data = await res.json();
+            setGameInfo(data);
+            console.log('Player action data:', data);
+            console.log('Player action:', data.players);
+            updatePlayers(data.players);
+        } catch (error) {
+            console.error(`Error performing ${action}:`, error);
+            setError(`Failed to ${action}.`);
+        }
+    }
+
     if (loading) return <div>Loading...</div>;
     if (error) return <div>Error: {error}</div>;
-
-    console.log("dealer:", dealer);
 
     return (
         <div className={styles.gameContainer}>
@@ -239,7 +246,6 @@ export default function PokerGame({ params }) {
             )}
             <p>Pot size: {gameInfo?.pot}</p>
             <ul>
-                {console.log('players in html:', players)}
                 {Array.isArray(players) && players.map((player, index) => (
                     <li key={player.id}>
                         {player.name} {player.email === dealer ? '(Dealer)' : ''}
@@ -252,16 +258,24 @@ export default function PokerGame({ params }) {
                                 <p>Your Contribution to Pot: {player.contribution}</p>
                             </div>
                         )}
-                        {dealer === session.user.email && player.email === session.user.email && gameInfo?.state === 'playing' 
+                        {dealer === session.user.email && player.email === session.user.email && gameInfo?.state === 'playing'
                             ? <div>
                                 <button onClick={() => dealHands(gameInfo.id)}>Deal Hands</button>
                             </div> : ''}
                     </li>
                 ))}
             </ul>
-            {gameInfo?.players[0]?.email === session?.user?.email && gameInfo?.state === 'waiting' 
+            {gameInfo?.players[0]?.email === session?.user?.email && gameInfo?.state === 'waiting'
                 && gameInfo?.players.length >= 2 && (
-                <button onClick={handleStartGame}>Start Game</button>
+                    <button onClick={handleStartGame}>Start Game</button>
+                )}
+            {gameInfo?.state === 'playing' && (
+                <div>
+                    <button onClick={() => handlePlayerAction('fold')}>Fold</button>
+                    <button onClick={() => handlePlayerAction('check')}>Check</button>
+                    <button onClick={() => handlePlayerAction('call')}>Call</button>
+                    <button onClick={() => handlePlayerAction('raise', 100)}>Raise</button> {/* Amount can be changed */}
+                </div>
             )}
             <button onClick={handleLeaveGame}>Leave Game</button>
         </div>

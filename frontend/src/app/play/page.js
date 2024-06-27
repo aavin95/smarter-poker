@@ -1,7 +1,7 @@
 "use client"
 import { useSession, signIn } from "next-auth/react";
 import { useState } from "react";
-import { NewGame, JoinGame } from '../_actions';
+import { NewGame } from '../_actions';
 import { useRouter } from 'next/navigation';
 
 export default function CreateNewGame() {
@@ -38,6 +38,7 @@ export default function CreateNewGame() {
     }
 
     async function handleJoinGame() {
+        console.log('Attempting to join game:', joinGameId);
         if (!session) {
             signIn();
             return;
@@ -48,19 +49,29 @@ export default function CreateNewGame() {
         }
         setLoading(true);
         try {
-            const userEmail = session.user.email;
-            const result = await JoinGame(joinGameId, userEmail);
-            if (result == null) {
-                setError("Can't join a game you're already in.");
-                setLoading(false);
-                return;
+            console.log('Attempting to join game:', joinGameId);
+            const res = await fetch(`http://localhost:8080/api/game/join/${joinGameId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ userEmail: session.user.email })
+            });
+            console.log('res', res);
+            if (!res.ok) {
+                throw new Error('Failed to join game');
             }
-            setGameInfo(result);
+
+            const data = await res.json();
+            setGameInfo(data);
             setLoading(false);
+            console.log('game info players:', data.players);
+            console.log('joinGameId:', joinGameId); 
             // redirect to game page:
             router.push(`/game/${joinGameId}`);
         } catch (error) {
-            console.error("can't find user");
+            console.error('Error joining game:', error);
+            setError('Failed to join game.');
             setLoading(false);
         }
     }
@@ -95,9 +106,6 @@ export default function CreateNewGame() {
                 </>
             ) : (
                 <p>Please sign in to create or join a game.</p>
-            )}
-            {gameInfo && (
-                <p className="mt-4">Game created! Game ID: {gameInfo}</p>
             )}
             {error && (
                 <p className="mt-4 text-red-500">Error: {error}</p>

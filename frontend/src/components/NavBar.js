@@ -5,8 +5,6 @@ export default function Navbar() {
   const { data: session, status } = useSession();
   const loading = status === 'loading';
 
-  // Optional: Render nothing while loading
-  if (loading) return null;
 
   return (
     <nav className="bg-dark text-white py-4">

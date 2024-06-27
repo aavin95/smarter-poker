@@ -7,9 +7,7 @@ export async function GET(req) {
     }
     let url = req.url.split('/');
     const user_id = url.pop();
-    console.log("this user_id", user_id);
     const game_id = url.pop();
-    console.log("this game_id", game_id);
     if (!game_id || Array.isArray(game_id)) {
         return NextResponse.json({ message: 'Game ID must be provided and be a single string' }, { status: 400 });
     }
