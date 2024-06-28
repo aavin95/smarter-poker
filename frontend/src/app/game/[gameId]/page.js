@@ -19,6 +19,8 @@ export default function PokerGame({ params }) {
     const [error, setError] = useState('');
     const router = useRouter();
 
+    const currentGameId = params.gameId;
+
     const updateHand = (newHand) => {
         setPlayerHand(newHand);
     };
@@ -185,31 +187,14 @@ export default function PokerGame({ params }) {
         }
     }
 
-    async function handlePlayerAction(action, amount = 0) {
-        try {
-            const res = await fetch(`http://localhost:8080/api/game/action/${params.gameId}/${session.user.id}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ action, amount })
-            });
-
-            if (!res.ok) {
-                throw new Error(`Failed to ${action}`);
-            }
-
-            const data = await res.json();
-            setGameInfo(data.data);
-            console.log('Player action data:', data);
-            console.log('Player action data:', data.data.players);
-
-            updatePlayers(data.data.players);
-        } catch (error) {
-            console.error(`Error performing ${action}:`, error);
-            setError(`Failed to ${action}.`);
-        }
-    }
+    const handlePlayerAction = (action, amount = 0) => {
+        const currentPlayerId = session?.user?.id;
+        console.log('currentPlayerId', currentPlayerId);
+        console.log('session', session);
+        console.log('user', session?.user);
+        console.log('Attempting to handle player action:', action, amount, currentGameId, currentPlayerId);
+        socket.emit('playerAction', { gameId: currentGameId, playerId: currentPlayerId, action, amount });
+    };
 
     if (loading) return <div className="flex flex-col items-center justify-center min-h-screen py-2 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">Loading...</div>;
     if (error) return <div className="flex flex-col items-center justify-center min-h-screen py-2 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">Error: {error}</div>;
@@ -238,6 +223,12 @@ export default function PokerGame({ params }) {
                     </li>
                 ))}
             </ul>
+            <div>
+                <p>Pot: {gameInfo?.pot}</p>
+                <p>Current Bet: {gameInfo?.currentBet}</p>
+                <p>Table Cards: {gameInfo?.currentTurn}</p>
+
+            </div>
             {gameInfo?.players[0]?.email === session?.user?.email && gameInfo?.state === 'waiting'
                 && gameInfo?.players.length >= 2 && (
                     <button onClick={handleStartGame} className="px-4 py-2 mb-4 bg-blue-500 text-white rounded hover:bg-blue-600">Start Game</button>

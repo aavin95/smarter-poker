@@ -28,6 +28,7 @@ model User {
   currentGame   Game? @relation("PlayerGames", fields: [gameId], references: [id])
   hands         Hand[]
   bets          Bet[]
+  currentBet    Int @default(0)
 }
 
 model Hand {
