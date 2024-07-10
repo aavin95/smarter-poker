@@ -29,6 +29,7 @@ model User {
   hands         Hand[]
   bets          Bet[]
   currentBet    Int @default(0)
+  folded        Boolean @default(false)
 }
 
 model Hand {

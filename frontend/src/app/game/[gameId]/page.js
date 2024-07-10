@@ -193,7 +193,7 @@ export default function PokerGame({ params }) {
         console.log('session', session);
         console.log('user', session?.user);
         console.log('Attempting to handle player action:', action, amount, currentGameId, currentPlayerId);
-        socket.emit('playerAction', { gameId: currentGameId, playerId: currentPlayerId, action, amount });
+        socket.emit('playerAction', { gameId: currentGameId, playerId: currentPlayerId, action: action, amount: amount });
     };
 
     if (loading) return <div className="flex flex-col items-center justify-center min-h-screen py-2 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">Loading...</div>;
