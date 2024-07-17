@@ -5,35 +5,32 @@ const cors = require('cors');
 const { PrismaClient } = require('@prisma/client');
 const { dealHands, dealCommunityCards } = require('./deal');
 const { determineWinner } = require('./determineWinner');
-require('dotenv').config(); // Load environment variables
+require('dotenv').config();
 
 const prisma = new PrismaClient();
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
-        origin: "http://localhost:3001", // Your Next.js app URL
+        origin: "http://localhost:3001",
         methods: ["GET", "POST"]
     }
 });
 
 app.use(express.json());
-app.use(cors({ origin: 'http://localhost:3001' })); // Enable CORS for your Next.js app
+app.use(cors({ origin: 'http://localhost:3001' }));
 
-// Function to sanitize game data before sending it to the client
 const sanitizeGameData = (game) => {
-    const sanitizedGame = {
+    return {
         ...game,
         players: game.players.map(player => ({
             ...player,
-            hands: [], // Exclude player hands
+            hands: [],
         })),
-        usedCards: [] // Exclude used cards
+        usedCards: []
     };
-    return sanitizedGame;
 };
 
-// Utility functions
 const updateGame = async (gameId, data) => {
     const updateData = { ...data };
 
@@ -58,19 +55,38 @@ const updateGame = async (gameId, data) => {
 };
 
 const resetGame = async (gameId) => {
+    // Fetch the current game state
+    const game = await prisma.game.findUnique({
+        where: { id: gameId },
+        include: { players: true }
+    });
+
+    // Check if the game exists
+    if (!game) {
+        throw new Error(`Game with ID ${gameId} not found`);
+    }
+
+    // Calculate the new dealer position
+    const newDealer = (game.dealer + 1) % game.players.length;
+    const newPot = game.bigBlind + game.smallBlind;
+    const newCurrentBet = game.bigBlind;
+
+    // Update the game state
     return await prisma.game.update({
         where: { id: gameId },
         data: {
-            state: 'waiting',
-            round: 0,
+            state: 'pre_flop', // Start directly in the pre-flop state
+            round: 'pre_flop',
             currentTurn: 0,
             tableCards: [],
             usedCards: [],
-            pot: 0,
-            currentBet: 0
+            pot: newPot,
+            currentBet: newCurrentBet,
+            dealer: newDealer,
         }
     });
 };
+
 
 const getNextPlayer = (game) => {
     let nextPlayer = (game.playerOnClock + 1) % game.players.length;
@@ -82,43 +98,32 @@ const getNextPlayer = (game) => {
 
 const JoinGame = async (gameId, userEmail) => {
     try {
-        const user = await prisma.user.findFirst({
-            where: {
-                email: userEmail
-            }
-        });
+        const user = await prisma.user.findFirst({ where: { email: userEmail } });
 
         if (!user) {
             throw new Error(`No user found with email: ${userEmail}`);
         }
 
-        // Check if the user is already in the game
         const isUserInGame = await prisma.game.findFirst({
             where: {
                 id: gameId,
                 players: {
-                    some: {
-                        id: user.id
-                    }
+                    some: { id: user.id }
                 }
             }
         });
 
         if (isUserInGame) {
             console.log(`User with email ${userEmail} is already in the game with id ${gameId}`);
-            return null; // or some appropriate response indicating the user is already in the game
+            return null;
         }
 
-        // Add user to the game if they are not already a participant
         const game = await prisma.game.update({
             where: { id: gameId },
-            data: {
-                players: {
-                    connect: [{ id: user.id }]
-                }
-            },
+            data: { players: { connect: [{ id: user.id }] } },
             include: { players: true }
         });
+
         if (!game) {
             console.log('Failed to add user to game');
             return null;
@@ -131,7 +136,6 @@ const JoinGame = async (gameId, userEmail) => {
     }
 };
 
-// API endpoint to get game data
 app.get('/api/game/:gameId', async (req, res) => {
     try {
         const gameId = req.params.gameId;
@@ -151,7 +155,6 @@ app.get('/api/game/:gameId', async (req, res) => {
     }
 });
 
-// API endpoint for joining a game
 app.post('/api/game/join/:gameId', async (req, res) => {
     const { gameId } = req.params;
     const { userEmail } = req.body;
@@ -170,7 +173,6 @@ app.post('/api/game/join/:gameId', async (req, res) => {
     }
 });
 
-// API endpoint for starting a game
 app.post('/api/game/start/:gameId', async (req, res) => {
     try {
         const gameId = req.params.gameId;
@@ -183,16 +185,20 @@ app.post('/api/game/start/:gameId', async (req, res) => {
             return res.status(404).json({ message: 'Game not found' });
         }
 
+        // Deal initial hands and set state to pre_flop
+        await dealHands(prisma, gameId);
         const updatedGame = await prisma.game.update({
             where: { id: gameId },
-            data: { state: 'playing' },
+            data: { 
+                state: 'playing', 
+                round: 'pre_flop',
+                pot: game.bigBlind + game.smallBlind,
+                currentBet: game.bigBlind
+            },
             include: { players: true }
         });
 
         io.emit('gameUpdate', sanitizeGameData(updatedGame));
-
-        // Start the game loop
-        startGameLoop(gameId);
 
         res.status(200).json({ message: `Game with ID ${gameId} started`, game: sanitizeGameData(updatedGame) });
     } catch (error) {
@@ -201,26 +207,21 @@ app.post('/api/game/start/:gameId', async (req, res) => {
     }
 });
 
-// Function to handle betting actions
 const handleBetAction = async (gameId, playerId, action, amount = 0) => {
-    try{
+    try {
         let game = await prisma.game.findUnique({
             where: { id: gameId },
             include: { players: true }
         });
-        console.log('handelBetAction', action);
         let player = game.players.find(p => p.id === playerId);
 
         switch (action) {
             case 'check':
-                console.log('currentBet', game.currentBet);
-                console.log('player.currentBet', player.currentBet);
                 if (game.currentBet === 0 || player.currentBet === game.currentBet) {
                     game.playerOnClock = getNextPlayer(game);
                 } else {
                     throw new Error('Invalid action: cannot check');
                 }
-                console.log('is this breaking?');
                 break;
             case 'fold':
                 player.folded = true;
@@ -231,7 +232,6 @@ const handleBetAction = async (gameId, playerId, action, amount = 0) => {
                 player.balance -= callAmount;
                 player.currentBet = game.currentBet;
                 game.pot += callAmount;
-                console.log('pot', game.pot);
                 game.playerOnClock = getNextPlayer(game);
                 break;
             case 'raise':
@@ -246,11 +246,9 @@ const handleBetAction = async (gameId, playerId, action, amount = 0) => {
                 throw new Error('Invalid action');
         }
 
-        // Ensure balance and pot are valid numbers
         player.balance = player.balance || 0;
         game.pot = game.pot || 0;
-        console.log('pot', game.pot);
-        console.log('about to update game');
+
         game = await updateGame(game.id, {
             players: game.players.map(player => ({
                 id: player.id,
@@ -264,178 +262,96 @@ const handleBetAction = async (gameId, playerId, action, amount = 0) => {
         });
 
         io.emit('gameUpdate', sanitizeGameData(game));
-        console.log('game updated');
         return game;
-    } catch(error){
+    } catch (error) {
         console.error('Error in handleBetAction:', error);
-        return null;
+        throw error;
     }
 };
 
-// API endpoint for a player action
-app.post('/api/game/action/:gameId/:playerId', async (req, res) => {
-    const { gameId, playerId } = req.params;
-    const { action, amount } = req.body;
-
+const handlePlayerAction = async (action) => {
+    const { gameId, playerId, actionType, amount } = action;
     try {
-        let game = await handleBetAction(gameId, playerId, action, amount);
-        res.status(200).json({ message: `Game with ID ${gameId} had ${action} action processed`, data: sanitizeGameData(game) });
-    } catch (error) {
-        console.error('Failed to process action:', error);
-        res.status(500).json({ error: 'Failed to process action' });
-    }
-});
+        console.log('Handling player action:', action);
+        const game = await handleBetAction(gameId, playerId, actionType, amount);
 
-// Helper function to wait for player action
-const waitForPlayerAction = (player, gameId) => {
-    console.log('Setting up waitForPlayerAction for player:', player.id);
-    return new Promise((resolve, reject) => {
-        const handleAction = async (actionData) => {
-            console.log('Received playerAction event:', actionData);
-            try {
-                if (actionData.gameId === gameId && actionData.playerId === player.id) {
-                    console.log('Player action matched, handling action...');
-                    io.off('playerAction', handleAction); // Clean up listener
-                    game = await handleBetAction(gameId, player.id, actionData.action, actionData.amount);
-                    resolve(game);
-                }
-            } catch (error) {
-                io.off('playerAction', handleAction); // Clean up listener on error
-                console.error('Error handling player action:', error);
-                reject(error);
+        if (game) {
+            if (allPlayersActed(game)) {
+                console.log('All players have acted');
+                await transitionToNextState(gameId);
             }
-        };
-        io.on('playerAction', handleAction);
-        console.log('Listener set for playerAction');
+            io.emit('gameUpdate', sanitizeGameData(game));
+        }
+    } catch (error) {
+        console.error('Error in handlePlayerAction:', error);
+        throw error;
+    }
+};
+
+const transitionToNextState = async (gameId) => {
+    const game = await prisma.game.findUnique({ where: { id: gameId }, include: { players: true } });
+    let nextState;
+    if (!game.state === 'playing') {
+        throw new Error('Invalid game state');
+    }
+    switch (game.round) {
+        case 'pre_flop':
+            nextState = 'flop';
+            console.log('Transitioning to flop');
+            await dealCommunityCards(prisma, gameId, 3); // Deal the flop (3 cards)
+            break;
+        case 'flop':
+            nextState = 'turn';
+            await dealCommunityCards(prisma, gameId, 1); // Deal the turn (1 card)
+            break;
+        case 'turn':
+            nextState = 'river';
+            await dealCommunityCards(prisma, gameId, 1); // Deal the river (1 card)
+            break;
+        case 'river':
+            nextState = 'showdown';
+            //await determineWinner(prisma, gameId); // Determine the winner
+            break;
+        case 'showdown':
+            nextState = 'pre_flop';
+            await resetGame(gameId); // Reset the game for a new round
+            await dealHands(prisma, gameId); // Deal initial hands for the new game
+            break;
+    }
+
+    await prisma.game.update({
+        where: { id: gameId },
+        data: { round: nextState },
     });
+
+    const updatedGame = await prisma.game.findUnique({
+        where: { id: gameId },
+        include: { players: true }
+    });
+    io.emit('gameUpdate', sanitizeGameData(updatedGame));
 };
 
-// Function to handle betting rounds
-const handleBettingRound = async (game) => {
-    let activePlayers = game.players.filter(player => !player.folded);
-    let playerOnClockIndex = game.playerOnClock;
-    let roundCompleted = false;
-
-    // Emit game update and inform the client which player is on the clock
-    io.emit('gameUpdate', sanitizeGameData(game));
-
-    console.log('playerOnClockIndex', playerOnClockIndex);
-    // Loop until the betting round is completed
-    while (!roundCompleted) {
-        console.log('in the betting round loop');
-        const currentPlayer = activePlayers[playerOnClockIndex];
-        console.log('currentPlayer');
-        // Wait for the current player to make an action
-        game = await waitForPlayerAction(currentPlayer);
-        console.log('waited for player action');
-        // Move to the next player
-        playerOnClockIndex = (playerOnClockIndex + 1) % activePlayers.length;
-
-        // Check if all players have completed their actions
-        console.log('about to check break condition');
-        if (playerOnClockIndex === game.playerOnClock) {
-            // Check if there are any remaining actions (i.e., players need to match the current bet)
-            const remainingActions = activePlayers.some(player => player.currentBet < game.currentBet && !player.folded);
-            if (!remainingActions) {
-                roundCompleted = true;
-            }
-        }
-    }
-
-    // Update the game state to reflect the end of the betting round
-    await updateGame(game.id, { round: game.round, playerOnClock: playerOnClockIndex });
-
-    io.emit('gameUpdate', sanitizeGameData(game));
-};
-
-// Function to start the game loop
-const startGameLoop = async (gameId) => {
-    try {
-        let game = await prisma.game.findUnique({
-            where: { id: gameId },
-            include: { players: true }
-        });
-
-        if (!game) {
-            console.error('Game not found');
-            return;
-        }
-
-        await dealHands(prisma, game.id);
-        game = await updateGame(game.id, { 
-            round: game.round + 1, 
-            currentBet: game.bigBlind,
-            pot: game.bigBlind + game.smallBlind 
-        });
-        io.emit('gameUpdate', sanitizeGameData(game));
-        await handleBettingRound(game);
-
-        // Deal flop
-        await dealCommunityCards(prisma, game.id, 3);
-        game = await updateGame(game.id, { round: game.round + 1 });
-        io.emit('gameUpdate', sanitizeGameData(game));
-        await handleBettingRound(game);
-
-        // Deal turn
-        await dealCommunityCards(prisma, game.id, 1);
-        game = await updateGame(game.id, { round: game.round + 1 });
-        io.emit('gameUpdate', sanitizeGameData(game));
-        await handleBettingRound(game);
-
-        // Deal river
-        await dealCommunityCards(prisma, game.id, 1);
-        game = await updateGame(game.id, { round: game.round + 1 });
-        io.emit('gameUpdate', sanitizeGameData(game));
-        await handleBettingRound(game);
-
-        // Determine the winner
-        // const winner = await determineWinner(prisma, game.id);
-        // game = await updateGame(game.id, { state: 'finished' });
-        // io.emit('gameUpdate', sanitizeGameData(game));
-
-        // Move the dealer chip
-        const nextDealer = (game.dealer + 1) % game.players.length;
-        game = await resetGame(game.id);
-        game = await updateGame(game.id, { dealer: nextDealer });
-        io.emit('gameUpdate', sanitizeGameData(game));
-
-        // Start a new hand
-        await startGameLoop(game.id);
-    } catch (error) {
-        console.error('Failed to run game loop:', error);
-    }
+const allPlayersActed = (game) => {
+    console.log('Checking if all players have acted');
+    console.log(game);
+    return game.players.every(player => player.folded || player.currentBet === game.currentBet);
 };
 
 io.on('connection', (socket) => {
-    console.log('a user connected');
+    console.log('A player connected:', socket.id);
 
-    socket.on('dealCards', async (gameId) => {
-        await dealHands(gameId);
-        const game = await prisma.game.findUnique({
-            where: { id: gameId },
-            include: { players: { include: { hands: true } } }
+    socket.on('playerAction', (action, callback = () => {}) => {
+        handlePlayerAction(action).then(() => {
+            callback({ success: true });
+        }).catch(error => {
+            console.error('Error handling player action:', error);
+            callback({ success: false, message: error.message });
         });
-
-        io.emit('gameUpdate', sanitizeGameData(game));
-    });
-
-    socket.on('playerAction', async (actionData) => {
-        try {
-            const { gameId, playerId, action, amount } = actionData;
-            await handleBetAction(gameId, playerId, action, amount); 
-            console.log('player action handled');
-        } catch (error) {
-            console.error('Failed to process player action:', error);
-        }
     });
 
     socket.on('disconnect', () => {
-        console.log('user disconnected');
+        console.log('A player disconnected:', socket.id);
     });
-});
-
-app.get('/', (req, res) => {
-    res.send('Socket.io server running');
 });
 
 server.listen(8080, () => {

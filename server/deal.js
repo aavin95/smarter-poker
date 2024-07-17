@@ -39,9 +39,10 @@ async function dealHands(prisma, gameId) {
     await prisma.game.update({
         where: { id: gameId },
         data: {
+            state: 'playing',
             usedCards: [],
             tableCards: [],
-            round: 0,
+            round: 'pre-flop',
             currentBet: 0,
             pot: 0,
             currentTurn: 0,

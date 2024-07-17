@@ -58,7 +58,7 @@ model Game {
   pot           Int      @default(0)
   currentBet    Int      @default(20)
   currentTurn   Int      @default(0)
-  round         Int      @default(0)
+  round         String   @default("waitingForStart")
   usedCards     String[] @default([])
 }
 

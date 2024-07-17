@@ -193,7 +193,7 @@ export default function PokerGame({ params }) {
         console.log('session', session);
         console.log('user', session?.user);
         console.log('Attempting to handle player action:', action, amount, currentGameId, currentPlayerId);
-        socket.emit('playerAction', { gameId: currentGameId, playerId: currentPlayerId, action: action, amount: amount });
+        socket.emit('playerAction', { gameId: currentGameId, playerId: currentPlayerId, actionType: action, amount: amount });
     };
 
     if (loading) return <div className="flex flex-col items-center justify-center min-h-screen py-2 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">Loading...</div>;
@@ -226,7 +226,7 @@ export default function PokerGame({ params }) {
             <div>
                 <p>Pot: {gameInfo?.pot}</p>
                 <p>Current Bet: {gameInfo?.currentBet}</p>
-                <p>Table Cards: {gameInfo?.currentTurn}</p>
+                <p>Table Cards: {gameInfo?.tableCards}</p>
 
             </div>
             {gameInfo?.players[0]?.email === session?.user?.email && gameInfo?.state === 'waiting'
