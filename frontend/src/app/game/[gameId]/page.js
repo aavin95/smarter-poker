@@ -7,6 +7,17 @@ import { LeaveGame } from '../../_actions';
 
 const socket = io('http://localhost:8080');
 
+const cardToUnicode = {
+    'AS': '🂡', '2S': '🂢', '3S': '🂣', '4S': '🂤', '5S': '🂥', '6S': '🂦', '7S': '🂧', '8S': '🂨', '9S': '🂩', '10S': '🂪', 'JS': '🂫', 'QS': '🂭', 'KS': '🂮',
+    'AH': '🂱', '2H': '🂲', '3H': '🂳', '4H': '🂴', '5H': '🂵', '6H': '🂶', '7H': '🂷', '8H': '🂸', '9H': '🂹', '10H': '🂺', 'JH': '🂻', 'QH': '🂽', 'KH': '🂾',
+    'AD': '🃁', '2D': '🃂', '3D': '🃃', '4D': '🃄', '5D': '🃅', '6D': '🃆', '7D': '🃇', '8D': '🃈', '9D': '🃉', '10D': '🃊', 'JD': '🃋', 'QD': '🃍', 'KD': '🃎',
+    'AC': '🃑', '2C': '🃒', '3C': '🃓', '4C': '🃔', '5C': '🃕', '6C': '🃖', '7C': '🃗', '8C': '🃘', '9C': '🃙', '10C': '🃚', 'JC': '🃛', 'QC': '🃝', 'KC': '🃞'
+};
+
+function translateCardToUnicode(card) {
+    return cardToUnicode[card] || card;
+}
+
 export default function PokerGame({ params }) {
     const { data: session, status } = useSession();
     const [gameInfo, setGameInfo] = useState(null);
@@ -50,7 +61,13 @@ export default function PokerGame({ params }) {
 
             socket.on('gameUpdate', async (updatedGame) => {
                 if (updatedGame.id === params.gameId) {
-                    setGameInfo(updatedGame);
+                    const updatedHand = updatedGame.tableCards.json();
+                    const updatedGameWithPrettyHands = {
+                        ...updatedGame,
+                        tableCards: Array.isArray(updatedHand) ? updatedHand.map(translateCardToUnicode) : [],
+                    };    
+                    console.log(updatedGameWithPrettyHands);
+                    setGameInfo(updatedGameWithPrettyHands);
                     const playersData = updatedGame.players;
                     setOnClockPlayer(updatedGame.playerOnClock);
                     updatePlayers(playersData);
@@ -127,7 +144,10 @@ export default function PokerGame({ params }) {
             }
 
             const data = await res.json();
-            return data.hand;
+            const hand = [translateCardToUnicode(data.hand[0]), translateCardToUnicode(data.hand[1])]
+            console.log('data', data);
+            console.log("hand", hand);
+            return hand;
         } catch (error) {
             console.error('Error fetching user hand:', error);
             return [];
@@ -149,6 +169,7 @@ export default function PokerGame({ params }) {
             const data = await res.json();
             setGameInfo(data.game);
             updatePlayers(data.game.players);
+            setDealer(data.game.dealer);
             fetchGameData();
         } catch (error) {
             console.error('Error starting game:', error);
@@ -196,6 +217,8 @@ export default function PokerGame({ params }) {
         socket.emit('playerAction', { gameId: currentGameId, playerId: currentPlayerId, actionType: action, amount: amount });
     };
 
+    const shareLink = `http://localhost:3000/game/${currentGameId}`;
+
     if (loading) return <div className="flex flex-col items-center justify-center min-h-screen py-2 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">Loading...</div>;
     if (error) return <div className="flex flex-col items-center justify-center min-h-screen py-2 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">Error: {error}</div>;
 
@@ -205,29 +228,38 @@ export default function PokerGame({ params }) {
             {gameInfo?.state === 'playing' ? (
                 <p className="mb-4">Game in progress</p>
             ) : (
-                <p className="mb-4">Waiting for players to join...</p>
+                <div className="mb-4">
+                    <p>Waiting for players to join...</p>
+                    <p className="mt-2">Share this link with others to join: <a href={shareLink} className="text-blue-500">{shareLink}</a></p>
+                </div>
             )}
-            <p className="mb-4">Pot size: {gameInfo?.pot}</p>
+            <p>Players in game:</p>
             <ul className="mb-4">
                 {Array.isArray(players) && players.map((player, index) => (
                     <li key={player.id} className="mb-2">
-                        {player.name} {player.email === dealer ? '(Dealer)' : ''}
-                        {index === (gameInfo.dealer + 1) % players.length ? '(Small Blind)' : ''}
-                        {index === (gameInfo.dealer + 2) % players.length ? '(Big Blind)' : ''}
-                        {index === onClockPlayer ? '(On Clock)' : ''}
+                        {player.name} {player.email === dealer && gameInfo?.state === 'playing' ? '(Dealer)' : ''}
+                        {index === (gameInfo.dealer + 1) % players.length && gameInfo?.state === 'playing' ? '(Small Blind)' : ''}
+                        {index === (gameInfo.dealer + 2) % players.length && gameInfo?.state === 'playing' ? '(Big Blind)' : ''}
+                        {index === onClockPlayer && gameInfo?.state === 'playing' ? '(On Clock)' : ''}
                         {player.email === session.user.email && gameInfo?.state === 'playing' && (
                             <div>
-                                <p>Your Cards: {playerHand[0]}, {playerHand[1]}</p>
+                                <p>
+                                    <span style={{ fontSize: '5em' }}>{translateCardToUnicode(playerHand[0])}</span>, 
+                                    <span style={{ fontSize: '5em' }}>{translateCardToUnicode(playerHand[1])}</span>
+                                </p>
                             </div>
                         )}
                     </li>
                 ))}
             </ul>
             <div>
-                <p>Pot: {gameInfo?.pot}</p>
-                <p>Current Bet: {gameInfo?.currentBet}</p>
-                <p>Table Cards: {gameInfo?.tableCards}</p>
-
+                {gameInfo?.state === 'playing' ? (
+                    <>
+                        <p>Pot: {gameInfo?.pot}</p>
+                        <p>Current Bet: {gameInfo?.currentBet}</p>
+                        <p>Table Cards: {gameInfo?.tableCards.join(', ')}</p>
+                    </>
+                ) : ''}
             </div>
             {gameInfo?.players[0]?.email === session?.user?.email && gameInfo?.state === 'waiting'
                 && gameInfo?.players.length >= 2 && (
