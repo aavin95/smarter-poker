@@ -62,7 +62,7 @@ export default function PokerGame({ params }) {
             socket.on('gameUpdate', async (updatedGame) => {
                 if (updatedGame.id === params.gameId) {
                     const updatedHand = updatedGame.tableCards.json();
-                    const updatedGameWithPrettyHands = {
+                    const updatedGameWithPrettyHands = { // TODO: fix this
                         ...updatedGame,
                         tableCards: Array.isArray(updatedHand) ? updatedHand.map(translateCardToUnicode) : [],
                     };    
