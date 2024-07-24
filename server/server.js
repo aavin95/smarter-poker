@@ -12,13 +12,14 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
-        origin: "http://localhost:3001",
+        origin: process.env.CLIENT_ORIGIN || "http://localhost:3001",
         methods: ["GET", "POST"]
     }
 });
+;
 
 app.use(express.json());
-app.use(cors({ origin: 'http://localhost:3001' }));
+app.use(cors({ origin: process.env.CLIENT_ORIGIN || 'http://localhost:3001' }));
 
 const sanitizeGameData = (game) => {
     return {
@@ -354,6 +355,6 @@ io.on('connection', (socket) => {
     });
 });
 
-server.listen(8080, () => {
-    console.log('Server listening on port 8080');
+server.listen(process.env.PORT || 8080, () => {
+    console.log(`Server listening on port ${process.env.PORT || 8080}`);
 });
