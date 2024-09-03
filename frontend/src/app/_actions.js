@@ -1,24 +1,24 @@
 'use server'
 import { newGame } from '@/lib/newGame'
+import prisma from '@/lib/prisma';
 
 export async function NewGame(userEmail) {
-    try
-    {
+    try {
         console.log("Attempting to find user with email in _actions.js:", userEmail);
         const user = await prisma.User.findUnique({
-                where:  {
-                    email: userEmail
-                }
+            where: {
+                email: userEmail
+            }
         });
         if (!user) {
             throw new Error(`No user found with email: ${userEmail}`);
         }
 
         console.log("user id in _actions.js", user.id)
-        const gameId = await newGame( { user });
+        const gameId = await newGame({ user });
         return gameId;
     }
-    catch(error){
+    catch (error) {
         console.error(error);
         return null;
     }
@@ -66,6 +66,15 @@ export async function LeaveGame(gameId, userEmail) {
             },
             include: { players: true }
         });
+        await prisma.user.update({
+            where: { id: user.id },
+            data: {
+                currentBet: 0,
+                actionTaken: false,
+                folded: false
+            }
+        });
+
         if (game.players.length === 0) {
             game = await prisma.Game.update({
                 where: { id: gameId },
@@ -77,7 +86,7 @@ export async function LeaveGame(gameId, userEmail) {
         }
         return game;
     }
-    catch(error) {
+    catch (error) {
         console.error(error);
         return null;
     }

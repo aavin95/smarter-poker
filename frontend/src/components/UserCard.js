@@ -4,12 +4,12 @@ type User = {
     name?: string | null | undefined;
     email?: string | null | undefined;
     image?: string | null | undefined;
-} | undefined
+} | undefined;
 
 type Props = {
     user: User;
     pagetype: string;
-}
+};
 
 export default function Card({ user, pagetype }) {
     const greeting = user?.name ? (

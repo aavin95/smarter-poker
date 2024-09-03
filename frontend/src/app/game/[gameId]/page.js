@@ -60,12 +60,14 @@ export default function PokerGame({ params }) {
             });
 
             socket.on('gameUpdate', async (updatedGame) => {
+                console.log('Received game update:', updatedGame);
                 if (updatedGame.id === params.gameId) {
-                    const updatedHand = updatedGame.tableCards.json();
+                    console.log('Updating game state:', updatedGame.state);
+                    const updatedHand = updatedGame.tableCards;
                     const updatedGameWithPrettyHands = { // TODO: fix this
                         ...updatedGame,
                         tableCards: Array.isArray(updatedHand) ? updatedHand.map(translateCardToUnicode) : [],
-                    };    
+                    };
                     console.log(updatedGameWithPrettyHands);
                     setGameInfo(updatedGameWithPrettyHands);
                     const playersData = updatedGame.players;
@@ -79,6 +81,9 @@ export default function PokerGame({ params }) {
                         setPlayerHand([]);
                     }
                 }
+            });
+            socket.on('gameWinner', ({ winner, handDescription }) => {
+                alert(`Winner is ${winner} with a ${handDescription}`);
             });
 
             socket.on('connect_error', (err) => {
@@ -225,7 +230,7 @@ export default function PokerGame({ params }) {
     return (
         <div className="flex flex-col items-center justify-center min-h-screen py-2 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
             <h2 className="text-2xl font-bold mb-4">Poker Table</h2>
-            {gameInfo?.state === 'playing' ? (
+            {(gameInfo?.state === 'playing' || gameInfo?.state === 'preflop') ? (
                 <p className="mb-4">Game in progress</p>
             ) : (
                 <div className="mb-4">
@@ -237,14 +242,14 @@ export default function PokerGame({ params }) {
             <ul className="mb-4">
                 {Array.isArray(players) && players.map((player, index) => (
                     <li key={player.id} className="mb-2">
-                        {player.name} {player.email === dealer && gameInfo?.state === 'playing' ? '(Dealer)' : ''}
-                        {index === (gameInfo.dealer + 1) % players.length && gameInfo?.state === 'playing' ? '(Small Blind)' : ''}
-                        {index === (gameInfo.dealer + 2) % players.length && gameInfo?.state === 'playing' ? '(Big Blind)' : ''}
-                        {index === onClockPlayer && gameInfo?.state === 'playing' ? '(On Clock)' : ''}
-                        {player.email === session.user.email && gameInfo?.state === 'playing' && (
+                        {player.name} {player.email === dealer && (gameInfo?.state === 'playing' || gameInfo?.state === 'preflop') ? '(Dealer)' : ''}
+                        {index === (gameInfo.dealer + 1) % players.length && (gameInfo?.state === 'playing' || gameInfo?.state === 'preflop') ? '(Small Blind)' : ''}
+                        {index === (gameInfo.dealer + 2) % players.length && (gameInfo?.state === 'playing' || gameInfo?.state === 'preflop') ? '(Big Blind)' : ''}
+                        {index === onClockPlayer && (gameInfo?.state === 'playing' || gameInfo?.state === 'preflop') ? '(On Clock)' : ''}
+                        {player.email === session.user.email && (gameInfo?.state === 'playing' || gameInfo?.state === 'preflop') && (
                             <div>
                                 <p>
-                                    <span style={{ fontSize: '5em' }}>{translateCardToUnicode(playerHand[0])}</span>, 
+                                    <span style={{ fontSize: '5em' }}>{translateCardToUnicode(playerHand[0])}</span>,
                                     <span style={{ fontSize: '5em' }}>{translateCardToUnicode(playerHand[1])}</span>
                                 </p>
                             </div>
@@ -253,7 +258,7 @@ export default function PokerGame({ params }) {
                 ))}
             </ul>
             <div>
-                {gameInfo?.state === 'playing' ? (
+                {(gameInfo?.state === 'playing' || gameInfo?.state === 'preflop') ? (
                     <>
                         <p>Pot: {gameInfo?.pot}</p>
                         <p>Current Bet: {gameInfo?.currentBet}</p>
@@ -265,7 +270,7 @@ export default function PokerGame({ params }) {
                 && gameInfo?.players.length >= 2 && (
                     <button onClick={handleStartGame} className="px-4 py-2 mb-4 bg-blue-500 text-white rounded hover:bg-blue-600">Start Game</button>
                 )}
-            {gameInfo?.state === 'playing' && onClockPlayer === players.findIndex(player => player.email === session.user.email) && (
+            {(gameInfo?.state === 'playing' || gameInfo?.state === 'preflop') && onClockPlayer === players.findIndex(player => player.email === session.user.email) && (
                 <div className="flex space-x-2 mb-4">
                     <button onClick={() => handlePlayerAction('fold')} className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600">Fold</button>
                     <button onClick={() => handlePlayerAction('check')} className="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600">Check</button>

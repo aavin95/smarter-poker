@@ -20,7 +20,7 @@ function shuffleDeck(deck) {
 
 async function dealHands(prisma, gameId) {
     if (!gameId) throw new Error('Game ID is required');
-    console.log("gameId in dealHands", gameId)
+    console.log("gameId in dealHands", gameId);
     const game = await prisma.game.findUnique({
         where: { id: gameId },
         include: { players: true }
@@ -30,26 +30,15 @@ async function dealHands(prisma, gameId) {
     const currentDealer = game.dealer;
     const numPlayers = game.players.length;
     const newDealer = (currentDealer + 1) % numPlayers;
+    const smallBlindIndex = (newDealer + 1) % numPlayers;
+    const bigBlindIndex = (newDealer + 2) % numPlayers;
 
     await prisma.hand.updateMany({
         where: { gameId: game.id },
         data: { state: 'finished' }
     });
 
-    await prisma.game.update({
-        where: { id: gameId },
-        data: {
-            state: 'playing',
-            usedCards: [],
-            tableCards: [],
-            round: 'pre-flop',
-            currentBet: 0,
-            pot: 0,
-            currentTurn: 0,
-            dealer: newDealer,
-        },
-    });
-
+    // Deal initial hands and reset game state
     let localDeck = shuffleDeck([...DECK]);
     const usedCards = [];
 
@@ -70,11 +59,64 @@ async function dealHands(prisma, gameId) {
         });
     }
 
-    await prisma.game.update({
-        where: { id: game.id },
-        data: { usedCards: usedCards.map(card => JSON.stringify(card)) },
+    // Deduct blinds and update pot
+    const smallBlindPlayer = game.players[smallBlindIndex];
+    const bigBlindPlayer = game.players[bigBlindIndex];
+    const smallBlindAmount = game.smallBlind;
+    const bigBlindAmount = game.bigBlind;
+
+    await prisma.$transaction([
+        prisma.user.update({
+            where: { id: smallBlindPlayer.id },
+            data: {
+                balance: { decrement: smallBlindAmount },
+                currentBet: { increment: smallBlindAmount }
+            }
+        }),
+        prisma.user.update({
+            where: { id: bigBlindPlayer.id },
+            data: {
+                balance: { decrement: bigBlindAmount },
+                currentBet: { increment: bigBlindAmount }
+            }
+        }),
+        prisma.bet.create({
+            data: {
+                playerId: smallBlindPlayer.id,
+                gameId: game.id,
+                amount: smallBlindAmount,
+                round: 1 // Assuming round 1 is pre-flop
+            }
+        }),
+        prisma.bet.create({
+            data: {
+                playerId: bigBlindPlayer.id,
+                gameId: game.id,
+                amount: bigBlindAmount,
+                round: 1 // Assuming round 1 is pre-flop
+            }
+        }),
+        prisma.game.update({
+            where: { id: game.id },
+            data: {
+                pot: { increment: smallBlindAmount + bigBlindAmount },
+                currentBet: bigBlindAmount,
+                dealer: newDealer,
+                usedCards: usedCards.map(card => JSON.stringify(card))
+            },
+        })
+    ]);
+
+    const smallBlind = await prisma.user.findUnique({
+        where: { id: smallBlindPlayer.id }
     });
+    console.log("smallBlind", smallBlind);
+    const bigBlind = await prisma.user.findUnique({
+        where: { id: bigBlindPlayer.id }
+    });
+    console.log("bigBlind", bigBlind);
 }
+
 
 async function dealCommunityCards(prisma, gameId, numCards) {
     if (!gameId) throw new Error('Game ID is required');

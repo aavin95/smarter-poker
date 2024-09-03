@@ -190,8 +190,8 @@ app.post('/api/game/start/:gameId', async (req, res) => {
         await dealHands(prisma, gameId);
         const updatedGame = await prisma.game.update({
             where: { id: gameId },
-            data: { 
-                state: 'playing', 
+            data: {
+                state: 'playing',
                 round: 'pre_flop',
                 pot: game.bigBlind + game.smallBlind,
                 currentBet: game.bigBlind
@@ -218,27 +218,46 @@ const handleBetAction = async (gameId, playerId, action, amount = 0) => {
 
         switch (action) {
             case 'check':
-                if (game.currentBet === 0 || player.currentBet === game.currentBet) {
+                if (game.currentBet === 0 || player.currentBet >= game.currentBet) {
+                    await prisma.user.update({
+                        where: { id: player.id },
+                        data: { actionTaken: true }
+                    });
                     game.playerOnClock = getNextPlayer(game);
                 } else {
                     throw new Error('Invalid action: cannot check');
                 }
                 break;
             case 'fold':
-                player.folded = true;
+                await prisma.user.update({
+                    where: { id: player.id },
+                    data: { folded: true, actionTaken: true }
+                });
                 game.playerOnClock = getNextPlayer(game);
                 break;
             case 'call':
                 let callAmount = game.currentBet - player.currentBet;
-                player.balance -= callAmount;
-                player.currentBet = game.currentBet;
+                await prisma.user.update({
+                    where: { id: player.id },
+                    data: {
+                        balance: player.balance - callAmount,
+                        currentBet: game.currentBet,
+                        actionTaken: true
+                    }
+                });
                 game.pot += callAmount;
                 game.playerOnClock = getNextPlayer(game);
                 break;
             case 'raise':
                 let raiseAmount = amount - player.currentBet;
-                player.balance -= raiseAmount;
-                player.currentBet = amount;
+                await prisma.user.update({
+                    where: { id: player.id },
+                    data: {
+                        balance: player.balance - raiseAmount,
+                        currentBet: amount,
+                        actionTaken: true
+                    }
+                });
                 game.currentBet = amount;
                 game.pot += raiseAmount;
                 game.playerOnClock = getNextPlayer(game);
@@ -247,19 +266,22 @@ const handleBetAction = async (gameId, playerId, action, amount = 0) => {
                 throw new Error('Invalid action');
         }
 
-        player.balance = player.balance || 0;
-        game.pot = game.pot || 0;
+        console.log("player.actionTaken", true); // Now we log 'true' when it should be true
 
-        game = await updateGame(game.id, {
-            players: game.players.map(player => ({
-                id: player.id,
-                balance: player.balance,
-                currentBet: player.currentBet,
-                folded: player.folded
-            })),
-            pot: game.pot,
-            playerOnClock: game.playerOnClock,
-            currentBet: game.currentBet
+        // Update the game state
+        await prisma.game.update({
+            where: { id: game.id },
+            data: {
+                pot: game.pot,
+                playerOnClock: game.playerOnClock,
+                currentBet: game.currentBet
+            }
+        });
+
+        // Fetch the updated game to emit the new state
+        game = await prisma.game.findUnique({
+            where: { id: gameId },
+            include: { players: true }
         });
 
         io.emit('gameUpdate', sanitizeGameData(game));
@@ -269,6 +291,9 @@ const handleBetAction = async (gameId, playerId, action, amount = 0) => {
         throw error;
     }
 };
+
+
+
 
 const handlePlayerAction = async (action) => {
     const { gameId, playerId, actionType, amount } = action;
@@ -289,8 +314,22 @@ const handlePlayerAction = async (action) => {
     }
 };
 
+const resetPlayerActions = async (gameId) => {
+    await prisma.user.updateMany({
+        where: { gameId },
+        data: { actionTaken: false }
+    });
+};
+
+
 const transitionToNextState = async (gameId) => {
+    await resetPlayerActions(gameId);
     const game = await prisma.game.findUnique({ where: { id: gameId }, include: { players: true } });
+    if (game.players.filter(player => !player.folded).length < 2) {
+        console.log('Not enough players to continue');
+        await resetGame(gameId);
+        return;
+    }
     let nextState;
     if (!game.state === 'playing') {
         throw new Error('Invalid game state');
@@ -311,7 +350,7 @@ const transitionToNextState = async (gameId) => {
             break;
         case 'river':
             nextState = 'showdown';
-            //await determineWinner(prisma, gameId); // Determine the winner
+            await determineWinner(prisma, io, gameId); // Determine the winner
             break;
         case 'showdown':
             nextState = 'pre_flop';
@@ -334,14 +373,15 @@ const transitionToNextState = async (gameId) => {
 
 const allPlayersActed = (game) => {
     console.log('Checking if all players have acted');
-    console.log(game);
-    return game.players.every(player => player.folded || player.currentBet === game.currentBet);
+    console.log(game.players);
+    return game.players.every(player => player.folded || player.actionTaken);
 };
+
 
 io.on('connection', (socket) => {
     console.log('A player connected:', socket.id);
 
-    socket.on('playerAction', (action, callback = () => {}) => {
+    socket.on('playerAction', (action, callback = () => { }) => {
         handlePlayerAction(action).then(() => {
             callback({ success: true });
         }).catch(error => {
